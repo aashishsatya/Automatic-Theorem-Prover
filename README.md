@@ -20,11 +20,11 @@ Kid(x) & Loves(Ice cream, x) ==> Awesome(x)
 
 is allowed (as P ==> Q translates to ~P | Q), but not
 
-King(Ashoka) & Just(Ashoka) & ~Evil(Ashoka)
+King(Ashoka) | Just(Ashoka) | ~Evil(Ashoka)
 
 as there are two positive literals in the above statement.
 
-Nested clauses, such as ~(King(Charles) | Prince(Charles)) & Person(Charles) which are technically definite clauses are also not yet supported.
+Nested clauses, such as ~(King(Charles) & Prince(Charles)) | Person(Charles) which are technically definite clauses are also not yet supported.
 
 Oh, and this is important: variables are named using small letters and values using words with atleast their first letter capital. For e.g. in 
 
