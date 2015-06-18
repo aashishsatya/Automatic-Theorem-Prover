@@ -52,3 +52,19 @@ def fol_bc_or():
     Helper functions that support fol_bc_ask as in AIMA
     """
     pass
+
+statement = raw_input()
+kb = KnowledgeBase()
+
+while statement != 'STOP':
+    
+    # parse the statement
+    
+    # check for implication
+    try:
+        antecedent, precedent = statement.split('==>')
+    except ValueError:
+        # ok, no implication, we just need to split the '&'s and add
+        # the statement to the KB   
+    # add to knowledge base
+    statement = raw_input()
