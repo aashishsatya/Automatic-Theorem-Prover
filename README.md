@@ -4,19 +4,16 @@ WARNING: Program in early stages of development, even this README might be incor
 
 This is a program that helps prove (or acknowledge non-provability of) a given query based on a given a set of propositions in first-order logic by logical inferences. The strategy used is backward chaining with unification. 
 
-Only the following logical connectives are supported as of now:
+The following logical connectives are supported as of now:
 
 & - and
 ==> - implies
-
-NOT SUPPORTED YET:
-
 ~ (tilde) - not
 | (pipe) - or
 
 For the time being, only very small knowledge bases using definite clauses (a disjunction of clauses that have just one positive literal - all the others are negated) are assumed. For e.g.
 
-Kid(x) & Loves(Ice cream, x) ==> Awesome(x)
+Kid(x) & Loves(Chocolate, x) ==> Awesome(x)
 
 is allowed (as P ==> Q translates to ~P | Q), but not
 
@@ -30,11 +27,11 @@ Oh, and this is important: variables are named using small letters and values us
 
 Spy(x)
 
-x can take on any values like Bond, Johnny English or Kim, but
+x can take on any values like Bond, Hunt or Powers, but
 
 Spy(X)
 
-would mean a spy whose name is X -- X cannot be substituted with Joe or Bond.
+would mean a spy whose name is X -- X cannot be substituted with Bourne or Tasker.
 
 All the above information will be displayed when a help command is invocated in the program (not implemented yet).
 
