@@ -54,12 +54,6 @@ def convert_to_clause(item):
     if isinstance(item, Clause):
         return item
         
-    # check for not
-    if '~' in item:
-        # get the next clause and simply not it
-        not_posn = item.index('~')
-        not_clause = Clause('~', item[not_posn + 1])
-        return not_clause
     # check for implication
     if '==>' in item:
         implication_posn = item.index('==>')
@@ -67,23 +61,33 @@ def convert_to_clause(item):
         antecedent = item[implication_posn + 1:]
         impl_clause = Clause('==>', [precedent, antecedent])
         return impl_clause
-    # check for and
-    elif '&' in item:
-        and_posn = item.index('&')
-        and_clause = Clause('&', [item[and_posn - 1], item[and_posn + 1]])
-        return and_clause
     # check for or
     elif '|' in item:
         or_posn = item.index('|')
-        or_clause = Clause('|', [item[or_posn - 1], item[or_posn + 1]])
+        first_disjunct = item[:or_posn]
+        second_disjunct = item[or_posn + 1:]
+        or_clause = Clause('|', [first_disjunct, second_disjunct])
         return or_clause
+    # check for and
+    elif '&' in item:
+        and_posn = item.index('&')
+        first_conjunct = item[:and_posn]
+        second_conjunct = item[and_posn + 1:]
+        and_clause = Clause('&', [first_conjunct, second_conjunct])
+        return and_clause
+    # check for not
+    elif '~' in item:
+        # get the next clause and simply not it
+        not_posn = item.index('~')
+        not_clause = Clause('~', [item[not_posn + 1:]])
+        return not_clause
     elif isinstance(item, str):
         return Clause(item)
     if len(item) == 1:
         # for statements such as ['P']
         return Clause(item[0])
     # for statements such as ['Loves',['Aashish', 'Chocolate']]
-    simple_clause = Clause(item[0], item[1:][0]) # [0] because [1:] produces a list
+    simple_clause = Clause(item[0], item[1:][0]) # [0] because [1:] produces a [[list]]
     return simple_clause        
     
 def fol_bc_ask(kb, query):
@@ -120,24 +124,20 @@ def fol_bc_or():
     """
     pass
 
-#print 'Enter statements in first-order logic one by one:'
-#print 'Enter STOP when done.'
-#
-## the knowledge base that stores all the statements
-#kb = KnowledgeBase()
-#
-#statement = raw_input()
-#while statement != 'STOP':    
-#    # parse the statement    
-#    parsed_stmnt = parse(statement)
-#    print parsed_stmnt
-#
-#    clause = convert_to_clause(parsed_stmnt)   
-#    
-#    # add to knowledge base    
-#    statement = raw_input()
+print 'Enter statements in first-order logic one by one:'
+print 'Enter STOP when done.'
 
-st = '(~p) & q ==> r'
-ctc = convert_to_clause
-st_cl = ctc(parse(st))
-prec = st_cl.args[0]
+# the knowledge base that stores all the statements
+kb = KnowledgeBase()
+
+statement = raw_input()
+while statement != 'STOP':    
+    # parse the statement    
+    parsed_stmnt = parse(statement)
+    print parsed_stmnt
+
+    clause = convert_to_clause(parsed_stmnt)   
+    
+    # add to knowledge base
+    
+    statement = raw_input()
