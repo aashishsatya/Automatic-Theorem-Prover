@@ -101,6 +101,8 @@ def convert_to_clause(item):
         return Clause(item)
     if len(item) == 1:
         # for statements such as ['P']
+        # this also helps get rid of unnecessary parens in statements such as
+        # ((P & Q))
         return convert_to_clause(item[0])
     # for statements such as ['Loves',['Aashish', 'Chocolate']]
     simple_clause = Clause(item[0], item[1:][0]) # [0] because [1:] produces a [[list]]
@@ -296,7 +298,7 @@ def fol_bc_or():
 #    statement = raw_input()
 
 # testing, will be removed later
-st = parse('~P|~Q|~S | ~(~P&Q)')
+st = parse('((P&Q))')
 st_cl = convert_to_clause(st)
-idc = is_definite_clause
-print idc(st_cl)
+#idc = is_definite_clause
+#print idc(st_cl)
