@@ -94,13 +94,14 @@ def convert_to_clause(item):
     elif '~' in item:
         # get the remaining clause and simply not it
         not_posn = item.index('~')
+#        print 'not args =', [item[not_posn + 1:]]
         not_clause = Clause('~', [item[not_posn + 1:]])
         return not_clause
     elif isinstance(item, str):
         return Clause(item)
     if len(item) == 1:
         # for statements such as ['P']
-        return Clause(item[0])
+        return convert_to_clause(item[0])
     # for statements such as ['Loves',['Aashish', 'Chocolate']]
     simple_clause = Clause(item[0], item[1:][0]) # [0] because [1:] produces a [[list]]
     return simple_clause        
@@ -140,6 +141,107 @@ def negate(clause):
         # we can just return the argument of the not clause, because THAT'S
         # what is being negated!!
         return clause.args[0]   # there will only be one argument
+        
+def break_nesting(clause):
+    
+    """
+    Breaks the nesting of clauses and converts them into their equivalent
+    "no-brackets" representation.
+    Helper function to enable us to count the number of positive and negative
+    disjuncts for helping with is_definite_clause()
+    """
+    
+    # there is nesting to be broken if the symbol is either
+    # an implication, or a not and the operator of the argument's not
+    # is a logical symbol
+    
+    if clause.op == '==>':
+        # expand P ==> Q as ~P | Q
+        negated_precedent = negate(clause.args[0]) # this is ~P
+        # break the nesting of ~P
+        broken_negated_precedent = break_nesting(negated_precedent)
+        return Clause('|', [broken_negated_precedent, clause.args[1]])
+    elif clause.op == '~':
+        # only continue breaking nesting if the operator of the not clause's
+        # argument is a logical operator
+        if clause.args[0].op in OPERATORS:
+            # expand
+            negated_not_clause = negate(clause.args[0])
+            broken_negated_not_clause = break_nesting(negated_not_clause)
+            return broken_negated_not_clause
+        else:
+            # just keep the whole thing as it is
+            # we want the ~P etc. to stay as they are so we can count
+            # the number of negative and positive literals
+            return clause
+    elif clause.op in ['&', '|']:
+        # break the nesting of their arguments and return them as themselves
+        broken_first_arg = break_nesting(clause.args[0])
+        broken_second_arg = break_nesting(clause.args[1])
+        return Clause(clause.op, [broken_first_arg, broken_second_arg])
+    else:
+        # simple propositions such as 'P' or 'Loves(Aashish, Chocolate)'
+        # send back straight away, nothing to do
+        return clause
+                           
+def is_definite_clause(clause):
+
+    """
+    Checks if the given clause is a definite clause.
+    A definite clause is a disjunction of literals such that exactly one term
+    is positive (all the other clauses are negated)
+    """
+    
+    # first break the clause up into simple terms
+    broken_clause = break_nesting(clause)
+    
+    # breaking nesting ensures that the only symbols remaining in the clause
+    # are '&', '|' or '~'.
+    
+    def check_definite_and_count(clause):
+        
+        """
+        Counts the number of positive and negated literals and returns them as
+        tuples of (positive, negative) counts.
+        Returns False if the clause's operator is 'and' or if the number of positive
+        literals exceeds one.
+        # TODO: Is this bad engineering?
+        """
+        
+        if clause.op not in OPERATORS:
+            # simple propositions such as 'P' or 'Has(...)'
+            # return one for positive
+            return (1, 0)    
+        elif clause.op == '~':
+            # there will only be one simple argument such as 'P' or 'Has(...)'
+            # so we can simply return one for negative
+            return (0, 1)
+        elif clause.op == '&':
+            # we can simply return False because now there is no way that
+            # the clause is a definite clause
+            return False        
+        # and we're at the hardest case
+        # operator is '|'
+        # count the number of positive and negative literal for each argument
+        first_arg_count = check_definite_and_count(clause.args[0])
+        second_arg_count = check_definite_and_count(clause.args[1])
+        if type(first_arg_count) == bool or type(second_arg_count) == bool:
+            # one of them was False (there's no way this fn returns True)
+            # so send back False
+            return False
+        # otherwise add the numbers up and continue
+        arg_sum = (first_arg_count[0] + second_arg_count[0], 
+                   first_arg_count[1] + second_arg_count[1])
+        if arg_sum[0] > 1:
+            # more than one positive literal
+            return False
+        return arg_sum
+        
+    broken_clause_count = check_definite_and_count(broken_clause)
+    if broken_clause_count == False:
+        return False
+    return broken_clause_count[0] == 1    
+        
     
 def fol_bc_ask(kb, query):
     """
@@ -194,6 +296,7 @@ def fol_bc_or():
 #    statement = raw_input()
 
 # testing, will be removed later
-st = parse('eats(aash, fish) & ~has(aash,cream) ==> notfat(aash)')
+st = parse('~P|~Q|~S | ~(~P&Q)')
 st_cl = convert_to_clause(st)
-nsc = negate(st_cl) # nsc = negated_st_cl
+idc = is_definite_clause
+print idc(st_cl)
