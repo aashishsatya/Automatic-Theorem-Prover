@@ -7,6 +7,8 @@ Created on Wed Jun 17 23:04:42 2015
 
 from Parser import *
 
+OPERATORS = ['&', '|', '~', '==>']
+
 class KnowledgeBase:
     
     """
@@ -52,7 +54,20 @@ def convert_to_clause(item):
     """
     
     if isinstance(item, Clause):
+        # already a clause
+        # happens with cases like negate
         return item
+        
+    # something like the precedence of operators is implicit in the order
+    # we process the symbols
+    # I say 'something like' because implication is checked for first
+    # This is because people tend to say P & Q ==> R by which they mean
+    # (P & Q) ==> R
+    # For this to work implication has to be checked for first
+    
+    # the check for the symbol with the highest precedence comes at the end
+    # only then will the nesting take place properly
+    # take a moment to wrap your head around this
         
     # check for implication
     if '==>' in item:
@@ -77,7 +92,7 @@ def convert_to_clause(item):
         return and_clause
     # check for not
     elif '~' in item:
-        # get the next clause and simply not it
+        # get the remaining clause and simply not it
         not_posn = item.index('~')
         not_clause = Clause('~', [item[not_posn + 1:]])
         return not_clause
@@ -89,6 +104,42 @@ def convert_to_clause(item):
     # for statements such as ['Loves',['Aashish', 'Chocolate']]
     simple_clause = Clause(item[0], item[1:][0]) # [0] because [1:] produces a [[list]]
     return simple_clause        
+
+def negate(clause):
+    """
+    A function that negates the given clause. 'clause' is an object of type
+    clause
+    """
+    if clause.op not in OPERATORS:
+        # means a clause like 'P' or 'Has'...
+        if clause.args == []:
+            # simple clause like 'P'
+            return Clause('~', [clause.op])
+        else:
+            # clause like ['Has', ['Aashish', 'Chocolate']]
+            # in that case 'Has' will be the op and rest the arguments
+            # of the clause in the '~' "level"
+            return Clause('~', [Clause(clause.op, clause.args)])
+            
+    # otherwise we have four kinds of operations to negate - &, |, ~ and ==>
+    # and
+    if clause.op == '&':
+        # ~(P & Q) becomes ~P | ~Q
+        return Clause('|', map(negate, clause.args))
+    # or
+    elif clause.op == '|':
+        # ~(P | Q) becomes ~P & ~Q
+        return Clause('&', map(negate, clause.args))
+    # implies
+    elif clause.op == '==>':
+        # ~(P ==> Q) becomes P & ~Q
+        return Clause('&', [clause.args[0], negate(clause.args[1])])
+    # not
+    else:
+        # this case is very easy
+        # we can just return the argument of the not clause, because THAT'S
+        # what is being negated!!
+        return clause.args[0]   # there will only be one argument
     
 def fol_bc_ask(kb, query):
     """
@@ -124,20 +175,25 @@ def fol_bc_or():
     """
     pass
 
-print 'Enter statements in first-order logic one by one:'
-print 'Enter STOP when done.'
+#print 'Enter statements in first-order logic one by one:'
+#print 'Enter STOP when done.'
+#
+## the knowledge base that stores all the statements
+#kb = KnowledgeBase()
+#
+#statement = raw_input()
+#while statement != 'STOP':    
+#    # parse the statement    
+#    parsed_stmnt = parse(statement)
+#    print parsed_stmnt
+#
+#    clause = convert_to_clause(parsed_stmnt)   
+#    
+#    # add to knowledge base
+#    
+#    statement = raw_input()
 
-# the knowledge base that stores all the statements
-kb = KnowledgeBase()
-
-statement = raw_input()
-while statement != 'STOP':    
-    # parse the statement    
-    parsed_stmnt = parse(statement)
-    print parsed_stmnt
-
-    clause = convert_to_clause(parsed_stmnt)   
-    
-    # add to knowledge base
-    
-    statement = raw_input()
+# testing, will be removed later
+st = parse('eats(aash, fish) & ~has(aash,cream) ==> notfat(aash)')
+st_cl = convert_to_clause(st)
+nsc = negate(st_cl) # nsc = negated_st_cl
