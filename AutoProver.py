@@ -9,6 +9,8 @@ from Parser import *
 
 OPERATORS = ['&', '|', '~', '==>']
 
+#______________________________________________________________________________
+
 class KnowledgeBase:
     
     """
@@ -23,9 +25,9 @@ class KnowledgeBase:
             
     def tell(clause):
         if is_definite_clause(clause):
-            try:
+            if clauses.op in self.clauses:
                 self.clauses[clause.op].append(clause)
-            except:
+            else:
                 # no such key as clause.op
                 # so make one
                 self.clauses[clause.op] = [clause]
@@ -66,6 +68,9 @@ class Clause:
         self.parents = parents
         self.args = map(convert_to_clause, args)
         
+    def __hash__(self):
+        return hash(self.op) ^ hash(tuple(self.args))
+        
     def __str__(self):
         if len(self.args) == 0:
             # simple proposition, just print it out
@@ -97,7 +102,17 @@ class Clause:
                 str_repn += '(' + str(self.args[1]) + ')'
             else:
                 str_repn += str(self.args[1])
-            return str_repn                
+            return str_repn
+            
+    def __eq__(self, other):
+        
+        return isinstance(other, Clause) and self.op == other.op and \
+        self.args == other.args
+        
+    
+        
+
+#______________________________________________________________________________              
         
 def convert_to_clause(item):
     
@@ -158,7 +173,9 @@ def convert_to_clause(item):
         return convert_to_clause(item[0])
     # for statements such as ['Loves',['Aashish', 'Chocolate']]
     simple_clause = Clause(item[0], item[1:][0]) # [0] because [1:] produces a [[list]]
-    return simple_clause        
+    return simple_clause 
+
+#______________________________________________________________________________       
 
 def negate(clause):
     """
@@ -195,6 +212,8 @@ def negate(clause):
         # we can just return the argument of the not clause, because THAT'S
         # what is being negated!!
         return clause.args[0]   # there will only be one argument
+        
+#______________________________________________________________________________
         
 def break_nesting(clause):
     
@@ -237,6 +256,8 @@ def break_nesting(clause):
         # simple propositions such as 'P' or 'Loves(Aashish, Chocolate)'
         # send back straight away, nothing to do
         return clause
+        
+#______________________________________________________________________________
                            
 def is_definite_clause(clause):
 
@@ -280,7 +301,7 @@ def is_definite_clause(clause):
         first_arg_count = check_definite_and_count(clause.args[0])
         second_arg_count = check_definite_and_count(clause.args[1])
         if type(first_arg_count) == bool or type(second_arg_count) == bool:
-            # one of them was False (there's no way this fn returns True)
+            # one of them was False (there's no way this function returns True)
             # so send back False
             return False
         # otherwise add the numbers up and continue
@@ -294,7 +315,9 @@ def is_definite_clause(clause):
     broken_clause_count = check_definite_and_count(broken_clause)
     if broken_clause_count == False:
         return False
-    return broken_clause_count[0] == 1    
+    return broken_clause_count[0] == 1 
+    
+#______________________________________________________________________________
         
     
 def fol_bc_ask(kb, query):
@@ -305,19 +328,65 @@ def fol_bc_ask(kb, query):
     """
     pass
 
-def unify(x, y, subst = {}):
-    """
-    The function that tries to unify two statements x and y. If the function is
-    successful it returns the binding that makes the unification successful
-    (stored in subst)
-    """
-    pass
+#______________________________________________________________________________
 
-def unify_vars(x, y, subst):
+def is_variable(item):
+    
     """
-    Helper function that supports the above unify function
+    Checks if item is a variable.
     """
-    pass
+    
+    # an item is a variable if it is of type Clause, its operator is a string
+    # and starts with a small case letter, and has no args
+    
+    return isinstance(item, Clause) and item.op.islower() and item.args == []
+
+def unify(x, y, subst = {}):
+    
+    """
+    The function that tries to unify two statements x and y. If such a unification
+    exists then the function returns the substitutions that make the unification
+    successful.
+    x and y can be clauses, lists (because we pass the arguments of a clause
+    to the function, or strings (we pass the operators too)
+    subst[x] (if x is in subst) stores the clause after 
+    """
+    
+    # AIMA 3rd edition Fig. 9.1, Pg. 328
+    
+    if subst is None:
+        # failure is denoted by None (default is {})
+        return None
+    elif x == y:
+        # happens if both x and y are operators like '&'
+        # or same-name variables (we're trying to return the most general unifier)
+        return subst
+    elif is_variable(x):
+        return unify_vars(x, y, subst)
+    elif is_variable(y):
+        return unify_vars(y, x, subst)
+    elif isinstance(x, Clause) and isinstance(y, Clause):
+        return unify(x.args, y.args, unify(x.op, y.op, subst))
+    elif isinstance(x, list) and isinstance(y, list) and len(x) == len(y):
+        return unify(x[1:], y[1:], unify(x[0], y[0], subst))
+    else:
+        return None
+
+def unify_vars(var, x, subst):
+    
+    """
+    Helper function that supports the above unify function. Only gets called
+    when unify is dealing with variables.
+    """
+    
+    if var in subst.keys():
+        return unify(subst[var], x, subst)
+    # occur check is eliminated
+    subst_copy = subst.copy()
+    subst_copy[var] = x
+    return subst_copy
+
+#______________________________________________________________________________
 
 def fol_bc_and():
     """
@@ -350,6 +419,14 @@ def fol_bc_or():
 #    statement = raw_input()
 
 # testing, will be removed later
-st = parse('~(has(aash, ice) & likes(m, p))')
-st_cl = convert_to_clause(st)
-print st_cl
+st1 = parse('Knows(John, x)')
+st2 = parse('Knows(y, Mother(y))')  # TODO: Nesting does not work!!
+st1_cl = convert_to_clause(st1)
+st2_cl = convert_to_clause(st2)
+ans = unify(st1_cl, st2_cl, {})
+if ans is not None:
+    ans_keys = ans.keys()
+    for key in ans_keys:
+        print key, ': ', ans[key]
+else:
+    print ans   # None
