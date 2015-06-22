@@ -15,8 +15,22 @@ class KnowledgeBase:
     Implements the knowledge base for the program.
     """
     
-    def __init__(self, clauses = []):
-        self.clauses = clauses
+    def __init__(self, initial_clauses = []):
+        # we will use the operator of the clauses for indexing
+        self.clauses = {}
+        for clause in initial_clauses:
+            self.tell(clause)
+            
+    def tell(clause):
+        if is_definite_clause(clause):
+            try:
+                self.clauses[clause.op].append(clause)
+            except:
+                # no such key as clause.op
+                # so make one
+                self.clauses[clause.op] = [clause]
+        else:
+            print 'Clause not definite, ignored:', clause
 
 class Clause:
     
@@ -45,6 +59,39 @@ class Clause:
         self.op = op
         self.parents = parents
         self.args = map(convert_to_clause, args)
+        
+    def __str__(self):
+        if len(self.args) == 0:
+            # simple proposition, just print it out
+            return self.op
+        elif self.op not in OPERATORS:
+            # again simple clause but with arguments like Strong(Superman)
+            # again print it out as it is
+            args = str(self.args[0])
+            for arg in self.args[1:]:
+                args = args + ', ' + str(arg)
+            return self.op + '(' + args + ')'
+        elif self.op == '~':
+            if self.args[0].op not in OPERATORS:
+                # statement like ~Loves(Batman, Joker)
+                # so no need for parens after '~'
+                return '~' + str(self.args[0])
+            else:
+                return '~' + '(' + str(self.args[0]) + ')'
+        else:
+            # binary operator like '&', '|' or '==>'
+            # check if argument clauses have logical operators
+            str_repn = ''
+            if self.args[0].op in OPERATORS:
+                str_repn = '(' + str(self.args[0]) + ')'
+            else:
+                str_repn = str(self.args[0])
+            str_repn += ' ' + self.op + ' '
+            if self.args[1].op in OPERATORS:
+                str_repn += '(' + str(self.args[1]) + ')'
+            else:
+                str_repn += str(self.args[1])
+            return str_repn                
         
 def convert_to_clause(item):
     
@@ -94,7 +141,6 @@ def convert_to_clause(item):
     elif '~' in item:
         # get the remaining clause and simply not it
         not_posn = item.index('~')
-#        print 'not args =', [item[not_posn + 1:]]
         not_clause = Clause('~', [item[not_posn + 1:]])
         return not_clause
     elif isinstance(item, str):
@@ -298,7 +344,6 @@ def fol_bc_or():
 #    statement = raw_input()
 
 # testing, will be removed later
-st = parse('((P&Q))')
+st = parse('~(has(aash, ice) & likes(m, p))')
 st_cl = convert_to_clause(st)
-#idc = is_definite_clause
-#print idc(st_cl)
+print st_cl
