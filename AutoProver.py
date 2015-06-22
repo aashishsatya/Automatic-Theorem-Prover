@@ -31,6 +31,12 @@ class KnowledgeBase:
                 self.clauses[clause.op] = [clause]
         else:
             print 'Clause not definite, ignored:', clause
+            
+    def ask(self, query):
+        pass
+    
+    def fetch_rules_for_goal(self):
+        return self.clauses
 
 class Clause:
     
