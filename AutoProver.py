@@ -429,6 +429,6 @@ ans = unify(st1_cl, st2_cl, {})
 if ans is not None:
     ans_keys = ans.keys()
     for key in ans_keys:
-        print key, ': ', ans[key]
+        print str(key) + ':', ans[key]
 else:
     print ans   # None
