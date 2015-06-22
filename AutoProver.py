@@ -420,7 +420,9 @@ def fol_bc_or():
 
 # testing, will be removed later
 st1 = parse('Knows(John, x)')
-st2 = parse('Knows(y, Mother(y))')  # TODO: Nesting does not work!!
+# notice the Mother(y) in parens like (Mother(y))
+# otherwise nesting arguments inside a simple proposition won't work
+st2 = parse('Knows(y, (Mother(y)))') 
 st1_cl = convert_to_clause(st1)
 st2_cl = convert_to_clause(st2)
 ans = unify(st1_cl, st2_cl, {})
