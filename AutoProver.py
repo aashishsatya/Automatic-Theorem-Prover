@@ -409,6 +409,23 @@ def standardize_vbls(clause, already_stdized = None):
         # simply create a new clause mapping the same function to all the args
         return Clause(clause.op, (standardize_vbls(arg, already_stdized) for arg in clause.args))    
     
+def substitute(theta, clause):
+    
+    """
+    Substitutes variables in clause with their (new) bindings in theta.
+    theta is a dict while clause is as usual an object of type Clause.
+    """
+    
+    assert isinstance(clause, Clause)
+    
+    if is_variable(clause):
+        if clause in theta:
+            return theta[clause]
+        else:
+            return clause
+    else:
+        return Clause(clause.op, (substitute(theta, arg) for arg in clause.args))
+
 def fol_bc_and():
     """
     Helper functions that support fol_bc_ask as in AIMA
@@ -454,8 +471,8 @@ def fol_bc_ask(kb, query):
 st1 = parse('Knows(John, x)')
 # notice the Mother(y) in parens like (Mother(y))
 # otherwise nesting arguments inside a simple proposition won't work
-st2 = parse('Knows(y, (Mother(y)), p)') 
+st2 = parse('Knows(y, (Mother(y)))')
 st1_cl = convert_to_clause(st1)
 st2_cl = convert_to_clause(st2)
-print standardize_vbls(st1_cl)
-print standardize_vbls(st2_cl)
+ans = unify(st1_cl, st2_cl)
+print substitute(ans, st1_cl)
