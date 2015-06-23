@@ -35,7 +35,7 @@ class KnowledgeBase:
             print 'Clause not definite, ignored:', clause
             
     def ask(self, query):
-        pass
+        return fol_bc_ask(self, query)
     
     def fetch_rules_for_goal(self):
         return self.clauses
@@ -107,10 +107,7 @@ class Clause:
     def __eq__(self, other):
         
         return isinstance(other, Clause) and self.op == other.op and \
-        self.args == other.args
-        
-    
-        
+        self.args == other.args        
 
 #______________________________________________________________________________              
         
@@ -318,17 +315,6 @@ def is_definite_clause(clause):
     return broken_clause_count[0] == 1 
     
 #______________________________________________________________________________
-        
-    
-def fol_bc_ask(kb, query):
-    """
-    A function that uses backward chaining to find whether query is entailed by
-    the knowledge base kb.
-    Straight from Fig. in AIMA, 3rd edition.
-    """
-    pass
-
-#______________________________________________________________________________
 
 def is_variable(item):
     
@@ -388,6 +374,41 @@ def unify_vars(var, x, subst):
 
 #______________________________________________________________________________
 
+VARIABLE_COUNTER = 0
+
+def standardize_vbls(clause, already_stdized = None):
+    
+    """
+    Returns the given clause after standardizing the given variables.
+    'clause' is an object of type Clause
+    'already_stdized' stands for already standardized variables. It is this dict
+    that the program will check first to ensure that a (new) binding has already been
+    given to the variable. This is needed for statements such as 'F(x) & G(x)' --
+    we need them to be standardized as 'F(v_0) & G(v_0)' and not as 'F(v_0) & G(v_1)'
+    """
+    
+    global VARIABLE_COUNTER
+    
+    if already_stdized is None:
+        already_stdized = {}
+        
+    if not isinstance(clause, Clause):
+        return clause
+    
+    if is_variable(clause):
+        # check if variable has already been standardized
+        if clause in already_stdized:
+            return already_stdized[clause]
+        else:
+            new_vbl = Clause('v_' + str(VARIABLE_COUNTER))
+            VARIABLE_COUNTER += 1
+            # add new binding to the dict
+            already_stdized[clause] = new_vbl
+            return new_vbl
+    else:
+        # simply create a new clause mapping the same function to all the args
+        return Clause(clause.op, (standardize_vbls(arg, already_stdized) for arg in clause.args))    
+    
 def fol_bc_and():
     """
     Helper functions that support fol_bc_ask as in AIMA
@@ -399,6 +420,17 @@ def fol_bc_or():
     Helper functions that support fol_bc_ask as in AIMA
     """
     pass
+    
+def fol_bc_ask(kb, query):
+    """
+    A function that uses backward chaining to find whether query is entailed by
+    the knowledge base kb.
+    Straight from Fig. in AIMA, 3rd edition.
+    """
+    # simple one-liner.
+    return fol_bc_or(kb, query, {})
+
+#______________________________________________________________________________
 
 #print 'Enter statements in first-order logic one by one:'
 #print 'Enter STOP when done.'
@@ -422,13 +454,8 @@ def fol_bc_or():
 st1 = parse('Knows(John, x)')
 # notice the Mother(y) in parens like (Mother(y))
 # otherwise nesting arguments inside a simple proposition won't work
-st2 = parse('Knows(y, (Mother(y)))') 
+st2 = parse('Knows(y, (Mother(y)), p)') 
 st1_cl = convert_to_clause(st1)
 st2_cl = convert_to_clause(st2)
-ans = unify(st1_cl, st2_cl, {})
-if ans is not None:
-    ans_keys = ans.keys()
-    for key in ans_keys:
-        print str(key) + ':', ans[key]
-else:
-    print ans   # None
+print standardize_vbls(st1_cl)
+print standardize_vbls(st2_cl)
