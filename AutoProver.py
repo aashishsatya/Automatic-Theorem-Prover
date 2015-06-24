@@ -19,26 +19,32 @@ class KnowledgeBase:
     
     def __init__(self, initial_clauses = []):
         # we will use the operator of the clauses for indexing
-        self.clauses = {}
+        self.clauses = []
         for clause in initial_clauses:
             self.tell(clause)
             
-    def tell(clause):
+    def tell(self, clause):
         if is_definite_clause(clause):
-            if clauses.op in self.clauses:
-                self.clauses[clause.op].append(clause)
-            else:
-                # no such key as clause.op
-                # so make one
-                self.clauses[clause.op] = [clause]
+            self.clauses.append(clause)
+#            if clause.op in self.clauses:
+#                self.clauses[clause.op].append(clause)
+#            else:
+#                # no such key as clause.op
+#                # so make one
+#                self.clauses[clause.op] = [clause]
         else:
             print 'Clause not definite, ignored:', clause
             
     def ask(self, query):
         return fol_bc_ask(self, query)
     
-    def fetch_rules_for_goal(self):
+    def fetch_rules_for_goal(self, goal):
         return self.clauses
+        # Christ I hope this works
+#        if goal.op in self.clauses:
+#            return self.clauses[goal.op]
+#        else:
+#            return []
 
 class Clause:
     
@@ -426,17 +432,53 @@ def substitute(theta, clause):
     else:
         return Clause(clause.op, (substitute(theta, arg) for arg in clause.args))
 
-def fol_bc_and():
+def fol_bc_and(kb, goals, theta):
+    
     """
     Helper functions that support fol_bc_ask as in AIMA
+    goals is a clause that will be a conjunction of all literals to prove.
     """
-    pass
+    
+    if theta is None:
+        pass
+    elif isinstance(goals, list) and len(goals) == 0:
+        yield theta
+    else:
+        if goals.op == '&':
+            first_arg = goals.args[0]
+            second_arg = goals.args[1]
+        else:
+            first_arg = goals
+            second_arg = []
+        for theta1 in fol_bc_or(kb, substitute(theta, first_arg), theta):
+            for theta2 in fol_bc_and(kb, second_arg, theta1):
+                yield theta2
 
-def fol_bc_or():
+def convert_to_implication(clause):
+    
+    """
+    Converts clause to a form lhs => rhs for further processing by fol_bc_or.
+    """
+    
+    if clause.op == '==>':
+        # the idea is that in lhs => rhs, lhs must be returned as a conjunction of literals.
+        # only then can fol_bc_and get each of those conjuncts to prove
+        # for this we simply break the nesting of the lhs (this should work, right?)
+        return break_nesting(clause.args[0]), clause.args[1]
+    else:
+        return [], clause
+
+def fol_bc_or(kb, goal, theta):
+    
     """
     Helper functions that support fol_bc_ask as in AIMA
     """
-    pass
+    
+    probable_rules = kb.fetch_rules_for_goal(goal)
+    for rule in probable_rules:
+        lhs, rhs = convert_to_implication(standardize_vbls(rule))
+        for theta1 in fol_bc_and(kb, lhs, unify(rhs, goal, theta)):
+            yield theta1
     
 def fol_bc_ask(kb, query):
     """
@@ -467,12 +509,24 @@ def fol_bc_ask(kb, query):
 #    
 #    statement = raw_input()
 
-# testing, will be removed later
-st1 = parse('Knows(John, x)')
-# notice the Mother(y) in parens like (Mother(y))
-# otherwise nesting arguments inside a simple proposition won't work
-st2 = parse('Knows(y, (Mother(y)))')
-st1_cl = convert_to_clause(st1)
-st2_cl = convert_to_clause(st2)
-ans = unify(st1_cl, st2_cl)
-print substitute(ans, st1_cl)
+# thanks Mr. Norvig for this
+crime_kb = KnowledgeBase(
+  map(convert_to_clause, map(parse,
+    ['(American(x) & Weapon(y) & Sells(x, y, z) & Hostile(z)) ==> Criminal(x)',
+     'Owns(Nono, M1)',
+     'Missile(M1)',
+     '(Missile(x) & Owns(Nono, x)) ==> Sells(West, x, Nono)',
+     'Missile(x) ==> Weapon(x)',
+     'Enemy(x, America) ==> Hostile(x)',
+     'American(West)',
+     'Enemy(Nono, America)'
+     ]))
+)
+
+test_query = convert_to_clause(parse('Criminal(x)'))
+vbl_in_query = test_query.args[0]
+for answer in crime_kb.ask(test_query):
+    if vbl_in_query in answer:
+        print str(vbl_in_query) + ':', answer[vbl_in_query]
+    else:
+        print 'No solution found.'
