@@ -461,7 +461,7 @@ def fol_bc_and(kb, goals, theta):
         else:
             # clause is a simple clause of kind 'Has(X, Y)'
             # so we need to prove just this i.e. there IS no second clause to prove
-            # hence make it [] so it is picked up by fol_bc_or
+            # hence make it [] so it is picked up by fol_bc_and
             first_arg = goals
             second_arg = []
         for theta1 in fol_bc_or(kb, substitute(theta, first_arg), theta):
