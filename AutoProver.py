@@ -19,32 +19,66 @@ class KnowledgeBase:
     
     def __init__(self, initial_clauses = []):
         # we will use the operator of the clauses for indexing
-        self.clauses = []
+        self.clauses = {}
         for clause in initial_clauses:
             self.tell(clause)
             
     def tell(self, clause):
         if is_definite_clause(clause):
-            self.clauses.append(clause)
-#            if clause.op in self.clauses:
-#                self.clauses[clause.op].append(clause)
-#            else:
-#                # no such key as clause.op
-#                # so make one
-#                self.clauses[clause.op] = [clause]
+            self.predicate_index(clause, clause)
         else:
             print 'Clause not definite, ignored:', clause
             
     def ask(self, query):
         return fol_bc_ask(self, query)
+        
+    def predicate_index(self, main_clause, inside_clause):
+        
+        """
+        Indexes the clause by each predicate for efficient unification.
+        main_clause will be the clause that we're asked to add to the knowledge base.
+        inside_clause will be the clause that exists inside the main_clause
+        """
+        
+        if is_predicate(inside_clause):
+            # simply add the main clause to the kb giving the name of the 
+            # predicate as the key
+            if inside_clause.op in self.clauses:
+                # check if the clause already exists
+                if main_clause not in self.clauses[inside_clause.op]:
+                    self.clauses[inside_clause.op].append(main_clause)
+            else:
+                # create a new entry
+                self.clauses[inside_clause.op] = [main_clause]
+        elif inside_clause.op == '~':
+            self.predicate_index(main_clause, inside_clause.args[0])
+        else:
+            # one of the other operators
+            # add both its arguments to the dictionary
+            self.predicate_index(main_clause, inside_clause.args[0])
+            self.predicate_index(main_clause, inside_clause.args[1])
+            
     
     def fetch_rules_for_goal(self, goal):
-        return self.clauses
-        # Christ I hope this works
-#        if goal.op in self.clauses:
-#            return self.clauses[goal.op]
-#        else:
-#            return []
+        predicate = self.retrieve_predicate(goal)
+        if predicate in self.clauses:
+            return self.clauses[predicate]
+        else:
+            return []
+    
+    def retrieve_predicate(self, goal):
+        
+        """
+        Retrieve atleast one predicate that is in the goal so that it can be
+        looked up in the self.clauses dict
+        """
+        
+        if is_predicate(goal):
+            return goal.op
+        else:
+            # works if op is '~' or any other symbol
+            # because there is always one argument if the symbol is a logical symbol
+            return retrieve_predicate(goal.args[0])
 
 class Clause:
     
@@ -508,6 +542,31 @@ def fol_bc_ask(kb, query):
 
 #______________________________________________________________________________
 
+def is_predicate(clause):
+        
+        """
+        Finds if the clause is a predicate or not
+        """
+        
+        return clause.op not in OPERATORS and clause.op[0].isupper() 
+        
+def find_variables(clause):
+    
+    """
+    Finds the variables in a clause.
+    """
+    
+    if is_variable(clause):
+        return [clause]
+    elif is_predicate(clause):
+        return clause.args
+    elif clause.op == '~':
+        return find_variables(clause.args[0])
+    else:
+        first_arg_vbls = find_variables(clause.args[0])
+        second_arg_vbls = find_variables(clause.args[1])
+        return first_arg_vbls + second_arg_vbls
+        
 #print 'Enter statements in first-order logic one by one:'
 #print 'Enter STOP when done.'
 #
@@ -527,6 +586,7 @@ def fol_bc_ask(kb, query):
 #    statement = raw_input()
 
 # thanks Mr. Norvig for this
+
 crime_kb = KnowledgeBase(
   map(convert_to_clause, map(parse,
     ['(American(x) & Weapon(y) & Sells(x, y, z) & Hostile(z)) ==> Criminal(x)',
@@ -540,10 +600,25 @@ crime_kb = KnowledgeBase(
      ]))
 )
 
-test_query = convert_to_clause(parse('Criminal(x)'))
-vbl_in_query = test_query.args[0]
-for answer in crime_kb.ask(test_query):
-    if vbl_in_query in answer:
-        print str(vbl_in_query) + ':', answer[vbl_in_query]
-    else:
-        print 'No solution found.'
+test_kb = KnowledgeBase(
+    map(convert_to_clause, map(parse, ['Farmer(Mac)',
+               'Rabbit(Pete)',
+               'Mother(MrsMac, Mac)',
+               'Mother(MrsRabbit, Pete)',
+               '(Rabbit(r) & Farmer(f)) ==> Hates(f, r)',
+               '(Mother(m, c)) ==> Loves(m, c)',
+               '(Mother(m, r) & Rabbit(r)) ==> Rabbit(m)',
+               '(Farmer(f)) ==> Human(f)',
+               # Note that this order of conjuncts
+               # would result in infinite recursion:
+               #'(Human(h) & Mother(m, h)) ==> Human(m)'
+               '(Mother(m, h) & Human(h)) ==> Human(m)'
+               ]))
+)
+
+test_query = convert_to_clause(parse('Hates(x,y)'))
+vbls_in_query = find_variables(test_query)
+for answer in test_kb.ask(test_query):
+    for variable in vbls_in_query:
+        if variable in answer:
+            print str(variable) + ':', answer[variable]
