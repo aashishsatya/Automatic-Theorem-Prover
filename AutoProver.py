@@ -358,10 +358,15 @@ def unify(x, y, subst = {}):
     elif is_variable(y):
         return unify_vars(y, x, subst)
     elif isinstance(x, Clause) and isinstance(y, Clause):
+        # if we're to merge two clauses we need to ensure that the operands are the same
+        # if they are then unify their arguments
         return unify(x.args, y.args, unify(x.op, y.op, subst))
     elif isinstance(x, list) and isinstance(y, list) and len(x) == len(y):
+        # this is the case when we're unifying the arguments of a clause
+        # see preceding line
         return unify(x[1:], y[1:], unify(x[0], y[0], subst))
     else:
+        # does not match any case, so no substitution
         return None
 
 def unify_vars(var, x, subst):
@@ -371,7 +376,8 @@ def unify_vars(var, x, subst):
     when unify is dealing with variables.
     """
     
-    if var in subst.keys():
+    if var in subst:
+        # if binding is already in the dict simply return it
         return unify(subst[var], x, subst)
     # occur check is eliminated
     subst_copy = subst.copy()
@@ -425,11 +431,14 @@ def substitute(theta, clause):
     assert isinstance(clause, Clause)
     
     if is_variable(clause):
+        # check if the variable already has a binding
         if clause in theta:
             return theta[clause]
         else:
             return clause
     else:
+        # compound clause with operators such as '&'
+        # check if any of the arguments are bound, and substitute
         return Clause(clause.op, (substitute(theta, arg) for arg in clause.args))
 
 def fol_bc_and(kb, goals, theta):
@@ -442,15 +451,22 @@ def fol_bc_and(kb, goals, theta):
     if theta is None:
         pass
     elif isinstance(goals, list) and len(goals) == 0:
+        # this happens when lhs ==> rhs is [] ==> rhs
         yield theta
     else:
         if goals.op == '&':
+            # operator can only be '&' because the clause is definite (we've broken the nesting)
             first_arg = goals.args[0]
             second_arg = goals.args[1]
         else:
+            # clause is a simple clause of kind 'Has(X, Y)'
+            # so we need to prove just this i.e. there IS no second clause to prove
+            # hence make it [] so it is picked up by fol_bc_or
             first_arg = goals
             second_arg = []
         for theta1 in fol_bc_or(kb, substitute(theta, first_arg), theta):
+            # the first argument goes to fol_bc_or because only ONE of the literals
+            # in that clause need be proved (and hence the clause becomes true)
             for theta2 in fol_bc_and(kb, second_arg, theta1):
                 yield theta2
 
@@ -477,6 +493,7 @@ def fol_bc_or(kb, goal, theta):
     probable_rules = kb.fetch_rules_for_goal(goal)
     for rule in probable_rules:
         lhs, rhs = convert_to_implication(standardize_vbls(rule))
+        # lhs goes to fol_bc_AND because ALL clauses in the lhs needs to be proved
         for theta1 in fol_bc_and(kb, lhs, unify(rhs, goal, theta)):
             yield theta1
     
