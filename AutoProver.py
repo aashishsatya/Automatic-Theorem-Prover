@@ -567,58 +567,63 @@ def find_variables(clause):
         second_arg_vbls = find_variables(clause.args[1])
         return first_arg_vbls + second_arg_vbls
         
-#print 'Enter statements in first-order logic one by one:'
-#print 'Enter STOP when done.'
-#
-## the knowledge base that stores all the statements
-#kb = KnowledgeBase()
-#
-#statement = raw_input()
-#while statement != 'STOP':    
-#    # parse the statement    
-#    parsed_stmnt = parse(statement)
-#    print parsed_stmnt
-#
-#    clause = convert_to_clause(parsed_stmnt)   
-#    
-#    # add to knowledge base
-#    
-#    statement = raw_input()
+print 'Enter statements in first-order logic one by one:'
+print 'Enter STOP when done.'
+
+# the knowledge base that stores all the statements
+kb = KnowledgeBase()
+
+statement = raw_input()
+while statement != 'STOP':    
+    # parse the statement    
+    parsed_stmnt = parse(statement)
+    # convert the statement to clause
+    clause = convert_to_clause(parsed_stmnt)   
+    # add to knowledge base
+    kb.tell(clause)    
+    statement = raw_input()
+    
+# input query
+query_input = raw_input('Enter your query: ')
+assert query_input != ''
+query = convert_to_clause(parse(query_input))
+
+# if you just want to see the theorem prover in action
+# comment out the code above, uncomment the below commented region and run
 
 # thanks Mr. Norvig for this
 
-crime_kb = KnowledgeBase(
-  map(convert_to_clause, map(parse,
-    ['(American(x) & Weapon(y) & Sells(x, y, z) & Hostile(z)) ==> Criminal(x)',
-     'Owns(Nono, M1)',
-     'Missile(M1)',
-     '(Missile(x) & Owns(Nono, x)) ==> Sells(West, x, Nono)',
-     'Missile(x) ==> Weapon(x)',
-     'Enemy(x, America) ==> Hostile(x)',
-     'American(West)',
-     'Enemy(Nono, America)'
-     ]))
-)
+#crime_kb = KnowledgeBase(
+#  map(convert_to_clause, map(parse,
+#    ['(American(x) & Weapon(y) & Sells(x, y, z) & Hostile(z)) ==> Criminal(x)',
+#     'Owns(Nono, M1)',
+#     'Missile(M1)',
+#     '(Missile(x) & Owns(Nono, x)) ==> Sells(West, x, Nono)',
+#     'Missile(x) ==> Weapon(x)',
+#     'Enemy(x, America) ==> Hostile(x)',
+#     'American(West)',
+#     'Enemy(Nono, America)'
+#     ]))
+#)
+#
+#test_kb = KnowledgeBase(
+#    map(convert_to_clause, map(parse, ['Farmer(Mac)',
+#               'Rabbit(Pete)',
+#               'Mother(MrsMac, Mac)',
+#               'Mother(MrsRabbit, Pete)',
+#               '(Rabbit(r) & Farmer(f)) ==> Hates(f, r)',
+#               '(Mother(m, c)) ==> Loves(m, c)',
+#               '(Mother(m, r) & Rabbit(r)) ==> Rabbit(m)',
+#               '(Farmer(f)) ==> Human(f)',
+#               '(Mother(m, h) & Human(h)) ==> Human(m)'
+#               ]))
+#)
+#
+#kb = test_kb
+#query = convert_to_clause(parse('Hates(x,y)'))
 
-test_kb = KnowledgeBase(
-    map(convert_to_clause, map(parse, ['Farmer(Mac)',
-               'Rabbit(Pete)',
-               'Mother(MrsMac, Mac)',
-               'Mother(MrsRabbit, Pete)',
-               '(Rabbit(r) & Farmer(f)) ==> Hates(f, r)',
-               '(Mother(m, c)) ==> Loves(m, c)',
-               '(Mother(m, r) & Rabbit(r)) ==> Rabbit(m)',
-               '(Farmer(f)) ==> Human(f)',
-               # Note that this order of conjuncts
-               # would result in infinite recursion:
-               #'(Human(h) & Mother(m, h)) ==> Human(m)'
-               '(Mother(m, h) & Human(h)) ==> Human(m)'
-               ]))
-)
-
-test_query = convert_to_clause(parse('Hates(x,y)'))
-vbls_in_query = find_variables(test_query)
-for answer in test_kb.ask(test_query):
+vbls_in_query = find_variables(query)
+for answer in kb.ask(query):
     for variable in vbls_in_query:
         if variable in answer:
             print str(variable) + ':', answer[variable]
