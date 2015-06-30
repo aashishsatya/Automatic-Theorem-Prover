@@ -8,6 +8,8 @@ Created on Wed Jun 17 23:04:42 2015
 from Parser import *
 
 OPERATORS = ['&', '|', '~', '==>']
+# this is to store parents of clauses
+parent_clause = {}
 
 #______________________________________________________________________________
 
@@ -387,6 +389,7 @@ def unify(x, y, subst = {}):
         # happens if both x and y are operators like '&'
         # or same-name variables (we're trying to return the most general unifier)
         return subst
+    # the following two cases are the only cases that can cause a binding
     elif is_variable(x):
         return unify_vars(x, y, subst)
     elif is_variable(y):
@@ -394,7 +397,13 @@ def unify(x, y, subst = {}):
     elif isinstance(x, Clause) and isinstance(y, Clause):
         # if we're to merge two clauses we need to ensure that the operands are the same
         # if they are then unify their arguments
-        return unify(x.args, y.args, unify(x.op, y.op, subst))
+        possible_subst = unify(x.args, y.args, unify(x.op, y.op, subst))
+        if possible_subst is not None:
+            # means one was the parent of the other
+            # the way fol_bc_ask works is with x as rhs and y as goal
+            # hence y is the parent
+            parent_clause[y] = x
+        return possible_subst
     elif isinstance(x, list) and isinstance(y, list) and len(x) == len(y):
         # this is the case when we're unifying the arguments of a clause
         # see preceding line
@@ -416,6 +425,9 @@ def unify_vars(var, x, subst):
     # occur check is eliminated
     subst_copy = subst.copy()
     subst_copy[var] = x
+    # so now x is a parent of var
+    # TODO: inefficient because it stores a lot of bindings that are not used?
+#    parent_dict[var] = x
     return subst_copy
 
 #______________________________________________________________________________
@@ -495,7 +507,7 @@ def fol_bc_and(kb, goals, theta):
         else:
             # clause is a simple clause of kind 'Has(X, Y)'
             # so we need to prove just this i.e. there IS no second clause to prove
-            # hence make it [] so it is picked up by fol_bc_and
+            # hence make the second clause [] so it is picked up by fol_bc_and
             first_arg = goals
             second_arg = []
         for theta1 in fol_bc_or(kb, substitute(theta, first_arg), theta):
@@ -524,10 +536,15 @@ def fol_bc_or(kb, goal, theta):
     Helper functions that support fol_bc_ask as in AIMA
     """
     
-    probable_rules = kb.fetch_rules_for_goal(goal)
-    for rule in probable_rules:
-        lhs, rhs = convert_to_implication(standardize_vbls(rule))
+    possible_rules = kb.fetch_rules_for_goal(goal)
+    for rule in possible_rules:
+        stdized_rule = standardize_vbls(rule)
+        lhs, rhs = convert_to_implication(stdized_rule)
         # lhs goes to fol_bc_AND because ALL clauses in the lhs needs to be proved
+        if lhs != []:
+            print 'from', stdized_rule, 'adding'
+            print 'parent_clause[', rhs, '] =', lhs, '...'
+            parent_clause[rhs] = lhs
         for theta1 in fol_bc_and(kb, lhs, unify(rhs, goal, theta)):
             yield theta1
     
@@ -566,30 +583,50 @@ def find_variables(clause):
         first_arg_vbls = find_variables(clause.args[0])
         second_arg_vbls = find_variables(clause.args[1])
         return first_arg_vbls + second_arg_vbls
-        
-print 'Enter statements in first-order logic one by one:'
-print 'Enter STOP when done.'
 
-# the knowledge base that stores all the statements
-kb = KnowledgeBase()
+#______________________________________________________________________________
 
-statement = raw_input()
-while statement != 'STOP':    
-    # parse the statement    
-    parsed_stmnt = parse(statement)
-    # convert the statement to clause
-    clause = convert_to_clause(parsed_stmnt)   
-    # add to knowledge base
-    kb.tell(clause)    
-    statement = raw_input()
+
+def print_parent(theta, clause):
+    """
+    Prints the parents of the clause one by one
+    """
     
-# input query
-query_input = raw_input('Enter your query: ')
-assert query_input != ''
-query = convert_to_clause(parse(query_input))
+    if clause not in parent_clause:
+        # last statement, must have already been given in kb
+        print 'We know', clause, '(given)'
+        return
+    elif parent_clause[clause] in parent_clause:
+        print_parent(theta, parent_clause[clause])
+        print 'From', parent_clause[clause], 'we get', clause
+    else:
+        print_parent(theta, substitute(theta, parent_clause[clause]))
+        print 'From', substitute(theta, parent_clause[clause]), 'we get', clause
+        
+
+#print 'Enter statements in first-order logic one by one:'
+#print 'Enter STOP when done.'
+#
+## the knowledge base that stores all the statements
+#kb = KnowledgeBase()
+#
+#statement = raw_input()
+#while statement != 'STOP':    
+#    # parse the statement    
+#    parsed_stmnt = parse(statement)
+#    # convert the statement to clause
+#    clause = convert_to_clause(parsed_stmnt)   
+#    # add to knowledge base
+#    kb.tell(clause)    
+#    statement = raw_input()
+#    
+## input query
+#query_input = raw_input('Enter your query: ')
+#assert query_input != ''
+#query = convert_to_clause(parse(query_input))
 
 # if you just want to see the theorem prover in action
-# comment out the code above, uncomment the below commented region and run
+# comment out the code above, uncomment the following code and run
 
 # thanks Mr. Norvig for this
 
@@ -603,27 +640,44 @@ query = convert_to_clause(parse(query_input))
 #     'Enemy(x, America) ==> Hostile(x)',
 #     'American(West)',
 #     'Enemy(Nono, America)'
-#     ]))
-#)
+#     ])))
 #
-#test_kb = KnowledgeBase(
-#    map(convert_to_clause, map(parse, ['Farmer(Mac)',
-#               'Rabbit(Pete)',
-#               'Mother(MrsMac, Mac)',
-#               'Mother(MrsRabbit, Pete)',
-#               '(Rabbit(r) & Farmer(f)) ==> Hates(f, r)',
-#               '(Mother(m, c)) ==> Loves(m, c)',
-#               '(Mother(m, r) & Rabbit(r)) ==> Rabbit(m)',
-#               '(Farmer(f)) ==> Human(f)',
-#               '(Mother(m, h) & Human(h)) ==> Human(m)'
-#               ]))
-#)
-#
+test_kb = KnowledgeBase(
+    map(convert_to_clause, map(parse, ['Farmer(Mac)',
+               'Rabbit(Pete)',
+               'Mother(MrsMac, Mac)',
+               'Mother(MrsRabbit, Pete)',
+               '(Rabbit(r) & Farmer(f)) ==> Hates(f, r)',
+               '(Mother(m, c)) ==> Loves(m, c)',
+               '(Mother(m, r) & Rabbit(r)) ==> Rabbit(m)',
+               '(Farmer(f)) ==> Human(f)',
+               '(Mother(m, h) & Human(h)) ==> Human(m)'
+               ])))
+
+proof_test_kb = KnowledgeBase(
+    map(convert_to_clause, map(parse, ['Malayali(Aashish)',
+    'Malayali(y) ==> Indian(y)'
+    ])))
+
+kb = proof_test_kb
+query = convert_to_clause(parse('Indian(x)'))
+
 #kb = test_kb
 #query = convert_to_clause(parse('Hates(x,y)'))
 
+print ''
 vbls_in_query = find_variables(query)
 for answer in kb.ask(query):
-    for variable in vbls_in_query:
-        if variable in answer:
-            print str(variable) + ':', answer[variable]
+    print '\nlong answer:\n'
+#    for variable in vbls_in_query:
+#        if variable in answer:
+#            print str(variable) + ':', answer[variable]
+    for key in answer.keys():
+        print str(key) + ':', answer[key]
+#    print '\nparents:\n'
+#    for key in parent_clause.keys():
+#        print str(key) + ':', parent_clause[key]
+    print '\nlogical process:\n'
+    print_parent(answer, query)
+    print ''
+    break
