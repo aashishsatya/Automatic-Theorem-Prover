@@ -397,13 +397,7 @@ def unify(x, y, subst = {}):
     elif isinstance(x, Clause) and isinstance(y, Clause):
         # if we're to merge two clauses we need to ensure that the operands are the same
         # if they are then unify their arguments
-        possible_subst = unify(x.args, y.args, unify(x.op, y.op, subst))
-#        if possible_subst is not None:
-            # means one was the parent of the other
-            # the way fol_bc_ask works is with x as rhs and y as goal
-            # hence y is the parent
-#            parent_clauses[y] = x
-        return possible_subst
+        return unify(x.args, y.args, unify(x.op, y.op, subst))
     elif isinstance(x, list) and isinstance(y, list) and len(x) == len(y):
         # this is the case when we're unifying the arguments of a clause
         # see preceding line
@@ -425,9 +419,6 @@ def unify_vars(var, x, subst):
     # occur check is eliminated
     subst_copy = subst.copy()
     subst_copy[var] = x
-    # so now x is a parent of var
-    # TODO: inefficient because it stores a lot of bindings that are not used?
-#    parent_dict[var] = x
     return subst_copy
 
 #______________________________________________________________________________
@@ -504,6 +495,10 @@ def fol_bc_and(kb, goals, theta):
             # operator can only be '&' because the clause is definite (we've broken the nesting)
             first_arg = goals.args[0]
             second_arg = goals.args[1]
+            if first_arg.op == '&':
+                parent_clauses[first_arg] = (first_arg.args, 'Rule of conjunction', None)
+            if second_arg.op == '&':
+                parent_clauses[second_arg] = (second_arg.args, 'Rule of conjunction', None)
         else:
             # clause is a simple clause of kind 'Has(X, Y)'
             # so we need to prove just this i.e. there IS no second clause to prove
@@ -540,22 +535,19 @@ def fol_bc_or(kb, goal, theta):
     for rule in possible_rules:
         stdized_rule = standardize_vbls(rule)
         lhs, rhs = convert_to_implication(stdized_rule)
-        # lhs goes to fol_bc_AND because ALL clauses in the lhs needs to be proved
-#        if lhs != []:
-#            print 'from', stdized_rule, 'adding'
-#            print 'parent_clauses[', rhs, '] =', lhs, '...'
-#            parent_clauses[rhs] = lhs
+#        print 'lhs, rhs =', str(lhs) + ',', rhs        
         rhs_unify_try = unify(rhs, goal, theta)
         if rhs_unify_try is not None:
             # some successful unification was obtained
-            # so the rule is the parent of the current goal            
+            if rhs.op == '&':
+                parent_clauses[rhs] = (rhs.args, 'Rule of conjunction', None)
             if lhs != []:
                 # checking for and declaring parent for '&'
                 if lhs.op == '&':
-#                    print 'GOAL IS AND'
-                    parent_clauses[lhs] = (lhs.args, 'Rule of conjunction')
-                parent_clauses[goal] = ([stdized_rule], 'Modus Ponens')
-                parent_clauses[stdized_rule] = ([lhs], 'Rule of universal instantiation')
+                    parent_clauses[lhs] = (lhs.args, 'Rule of conjunction', None)
+                parent_clauses[goal] = ([stdized_rule], 'Modus Ponens', None)
+                parent_clauses[stdized_rule] = ([lhs], 'Rule of universal instantiation', rule)
+        # lhs goes to fol_bc_AND because ALL clauses in the lhs needs to be proved
         for theta1 in fol_bc_and(kb, lhs, rhs_unify_try):
             yield theta1
     
@@ -611,18 +603,19 @@ def print_parent(theta, clause):
     if clause not in parent_clauses:
         # last statement, must have already been given in kb
         print 'We know', complete_substitute(theta, clause), '(given)'
-#        print 'We know', clause, '(given)'
         return
-    parents, rule_used = parent_clauses[clause]
+    parents, law_used, clause_used = parent_clauses[clause]
     for parent in parents:
         if parent in parent_clauses:
             print_parent(theta, parent)
-    #        if all(vbl in find_variables(query) for vbl in find_variables(clause)):
-    #        print 'From', complete_substitute(theta, parent_clauses[clause]), 'we get', complete_substitute(theta, clause)
         else:
             print_parent(theta, substitute(theta, parent))
-    print 'which leads to', complete_substitute(theta, clause), '(' + rule_used + ')'
-#    print 'From', parent_clauses[clause], 'we get', clause
+    print 'which leads to', complete_substitute(theta, clause),
+    if clause_used is not None:
+        # clause was of the implication form
+        print '(' + law_used, 'on', str(clause_used) + ')'
+    else:
+        print '(' + law_used + ')'
         
 
 #print 'Enter statements in first-order logic one by one:'
@@ -687,10 +680,7 @@ simplest_kb = KnowledgeBase(
     ])))
     
 kb = test_kb
-query = convert_to_clause(parse('Hates(x, y)'))
-
-#kb = test_kb
-#query = convert_to_clause(parse('Hates(x,y)'))
+query = convert_to_clause(parse('Hates(x,y)'))
 
 vbls_in_query = find_variables(query)
 for answer in kb.ask(query):
@@ -702,14 +692,14 @@ for answer in kb.ask(query):
 #        print str(key) + ':', answer[key]
 #    print '\nparents:\n'
 #    for key in parent_clauses.keys():
-#        parents, rule_used = parent_clauses[key]
+#        parents, law_used, clause_used = parent_clauses[key]
 #        print str(key) + ': [',
 #        print parents[0],
 #        for parent in parents[1:]:
 #            print ',',
 #            print parent,
-#        print '],', rule_used
-    print '\nlogical process:\n'
+#        print '],', law_used
+    print '\nProof:\n'
     print_parent(answer, query)
-    print ''
 #    break
+print ''
