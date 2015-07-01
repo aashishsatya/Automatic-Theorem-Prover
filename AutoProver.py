@@ -9,7 +9,7 @@ from Parser import *
 
 OPERATORS = ['&', '|', '~', '==>']
 # this is to store parents of clauses
-parent_clause = {}
+parent_clauses = {}
 
 #______________________________________________________________________________
 
@@ -398,11 +398,11 @@ def unify(x, y, subst = {}):
         # if we're to merge two clauses we need to ensure that the operands are the same
         # if they are then unify their arguments
         possible_subst = unify(x.args, y.args, unify(x.op, y.op, subst))
-        if possible_subst is not None:
+#        if possible_subst is not None:
             # means one was the parent of the other
             # the way fol_bc_ask works is with x as rhs and y as goal
             # hence y is the parent
-            parent_clause[y] = x
+#            parent_clauses[y] = x
         return possible_subst
     elif isinstance(x, list) and isinstance(y, list) and len(x) == len(y):
         # this is the case when we're unifying the arguments of a clause
@@ -541,11 +541,22 @@ def fol_bc_or(kb, goal, theta):
         stdized_rule = standardize_vbls(rule)
         lhs, rhs = convert_to_implication(stdized_rule)
         # lhs goes to fol_bc_AND because ALL clauses in the lhs needs to be proved
-        if lhs != []:
-            print 'from', stdized_rule, 'adding'
-            print 'parent_clause[', rhs, '] =', lhs, '...'
-            parent_clause[rhs] = lhs
-        for theta1 in fol_bc_and(kb, lhs, unify(rhs, goal, theta)):
+#        if lhs != []:
+#            print 'from', stdized_rule, 'adding'
+#            print 'parent_clauses[', rhs, '] =', lhs, '...'
+#            parent_clauses[rhs] = lhs
+        rhs_unify_try = unify(rhs, goal, theta)
+        if rhs_unify_try is not None:
+            # some successful unification was obtained
+            # so the rule is the parent of the current goal            
+            if lhs != []:
+                # checking for and declaring parent for '&'
+                if lhs.op == '&':
+#                    print 'GOAL IS AND'
+                    parent_clauses[lhs] = (lhs.args, 'Rule of conjunction')
+                parent_clauses[goal] = ([stdized_rule], 'Modus Ponens')
+                parent_clauses[stdized_rule] = ([lhs], 'Rule of universal instantiation')
+        for theta1 in fol_bc_and(kb, lhs, rhs_unify_try):
             yield theta1
     
 def fol_bc_ask(kb, query):
@@ -586,22 +597,32 @@ def find_variables(clause):
 
 #______________________________________________________________________________
 
+def complete_substitute(theta, clause):
+    # TODO: make this efficient!!
+    for i in range(0, len(theta.keys())):
+        clause = substitute(theta, clause)
+    return clause
 
 def print_parent(theta, clause):
     """
     Prints the parents of the clause one by one
     """
     
-    if clause not in parent_clause:
+    if clause not in parent_clauses:
         # last statement, must have already been given in kb
-        print 'We know', clause, '(given)'
+        print 'We know', complete_substitute(theta, clause), '(given)'
+#        print 'We know', clause, '(given)'
         return
-    elif parent_clause[clause] in parent_clause:
-        print_parent(theta, parent_clause[clause])
-        print 'From', parent_clause[clause], 'we get', clause
-    else:
-        print_parent(theta, substitute(theta, parent_clause[clause]))
-        print 'From', substitute(theta, parent_clause[clause]), 'we get', clause
+    parents, rule_used = parent_clauses[clause]
+    for parent in parents:
+        if parent in parent_clauses:
+            print_parent(theta, parent)
+    #        if all(vbl in find_variables(query) for vbl in find_variables(clause)):
+    #        print 'From', complete_substitute(theta, parent_clauses[clause]), 'we get', complete_substitute(theta, clause)
+        else:
+            print_parent(theta, substitute(theta, parent))
+    print 'which leads to', complete_substitute(theta, clause), '(' + rule_used + ')'
+#    print 'From', parent_clauses[clause], 'we get', clause
         
 
 #print 'Enter statements in first-order logic one by one:'
@@ -630,18 +651,18 @@ def print_parent(theta, clause):
 
 # thanks Mr. Norvig for this
 
-#crime_kb = KnowledgeBase(
-#  map(convert_to_clause, map(parse,
-#    ['(American(x) & Weapon(y) & Sells(x, y, z) & Hostile(z)) ==> Criminal(x)',
-#     'Owns(Nono, M1)',
-#     'Missile(M1)',
-#     '(Missile(x) & Owns(Nono, x)) ==> Sells(West, x, Nono)',
-#     'Missile(x) ==> Weapon(x)',
-#     'Enemy(x, America) ==> Hostile(x)',
-#     'American(West)',
-#     'Enemy(Nono, America)'
-#     ])))
-#
+crime_kb = KnowledgeBase(
+  map(convert_to_clause, map(parse,
+    ['(American(x) & Weapon(y) & Sells(x, y, z) & Hostile(z)) ==> Criminal(x)',
+     'Owns(Nono, M1)',
+     'Missile(M1)',
+     '(Missile(x) & Owns(Nono, x)) ==> Sells(West, x, Nono)',
+     'Missile(x) ==> Weapon(x)',
+     'Enemy(x, America) ==> Hostile(x)',
+     'American(West)',
+     'Enemy(Nono, America)'
+     ])))
+
 test_kb = KnowledgeBase(
     map(convert_to_clause, map(parse, ['Farmer(Mac)',
                'Rabbit(Pete)',
@@ -654,30 +675,41 @@ test_kb = KnowledgeBase(
                '(Mother(m, h) & Human(h)) ==> Human(m)'
                ])))
 
-proof_test_kb = KnowledgeBase(
+simpler_kb = KnowledgeBase(
     map(convert_to_clause, map(parse, ['Malayali(Aashish)',
-    'Malayali(y) ==> Indian(y)'
+    'Malayali(y) & Loves(India, y) ==> Indian(y)',
+    'Loves(India, Aashish)'
     ])))
 
-kb = proof_test_kb
-query = convert_to_clause(parse('Indian(x)'))
+simplest_kb = KnowledgeBase(
+    map(convert_to_clause, map(parse, ['Malayali(Aashish)',
+    'Malayali(x) ==> Indian(x)',
+    ])))
+    
+kb = test_kb
+query = convert_to_clause(parse('Hates(x, y)'))
 
 #kb = test_kb
 #query = convert_to_clause(parse('Hates(x,y)'))
 
-print ''
 vbls_in_query = find_variables(query)
 for answer in kb.ask(query):
-    print '\nlong answer:\n'
-#    for variable in vbls_in_query:
-#        if variable in answer:
-#            print str(variable) + ':', answer[variable]
-    for key in answer.keys():
-        print str(key) + ':', answer[key]
+#    print '\nbindings:\n'
+##    for variable in vbls_in_query:
+##        if variable in answer:
+##            print str(variable) + ':', answer[variable]
+#    for key in answer.keys():
+#        print str(key) + ':', answer[key]
 #    print '\nparents:\n'
-#    for key in parent_clause.keys():
-#        print str(key) + ':', parent_clause[key]
+#    for key in parent_clauses.keys():
+#        parents, rule_used = parent_clauses[key]
+#        print str(key) + ': [',
+#        print parents[0],
+#        for parent in parents[1:]:
+#            print ',',
+#            print parent,
+#        print '],', rule_used
     print '\nlogical process:\n'
     print_parent(answer, query)
     print ''
-    break
+#    break
