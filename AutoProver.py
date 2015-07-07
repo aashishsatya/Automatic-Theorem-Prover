@@ -599,7 +599,11 @@ def print_parent(theta, clause):
     """
     Prints the parents of the clause one by one
     """
-    
+    if clause.op == 'Sells' and clause not in parent_clauses:
+        # TODO: The problem here is that we're trying to find a parent for Sells(x, M1, Nono) while
+        # TODO: the parent_clauses only has a parent for Sells(x, M1, v_13).
+        # TODO: Fix this and hopefully you're done.
+        print 'trying to find parent for', clause
     if clause not in parent_clauses:
         # last statement, must have already been given in kb
         print 'We know', complete_substitute(theta, clause), '(given)'
@@ -649,7 +653,7 @@ crime_kb = KnowledgeBase(
     ['(American(x) & Weapon(y) & Sells(x, y, z) & Hostile(z)) ==> Criminal(x)',
      'Owns(Nono, M1)',
      'Missile(M1)',
-     '(Missile(x) & Owns(Nono, x)) ==> Sells(West, x, Nono)',
+     'Missile(x) & Owns(Nono, x) ==> Sells(West, x, Nono)',
      'Missile(x) ==> Weapon(x)',
      'Enemy(x, America) ==> Hostile(x)',
      'American(West)',
@@ -679,26 +683,26 @@ simplest_kb = KnowledgeBase(
     'Malayali(x) ==> Indian(x)',
     ])))
     
-kb = test_kb
-query = convert_to_clause(parse('Hates(x,y)'))
+kb = crime_kb
+query = convert_to_clause(parse('Criminal(x)'))
 
 vbls_in_query = find_variables(query)
 for answer in kb.ask(query):
-#    print '\nbindings:\n'
-##    for variable in vbls_in_query:
-##        if variable in answer:
-##            print str(variable) + ':', answer[variable]
-#    for key in answer.keys():
-#        print str(key) + ':', answer[key]
-#    print '\nparents:\n'
-#    for key in parent_clauses.keys():
-#        parents, law_used, clause_used = parent_clauses[key]
-#        print str(key) + ': [',
-#        print parents[0],
-#        for parent in parents[1:]:
-#            print ',',
-#            print parent,
-#        print '],', law_used
+    print '\nbindings:\n'
+#    for variable in vbls_in_query:
+#        if variable in answer:
+#            print str(variable) + ':', answer[variable]
+    for key in answer.keys():
+        print str(key) + ':', answer[key]
+    print '\nparents:\n'
+    for key in parent_clauses.keys():
+        parents, law_used, clause_used = parent_clauses[key]
+        print str(key) + ': [',
+        print parents[0],
+        for parent in parents[1:]:
+            print ',',
+            print parent,
+        print '],', law_used
     print '\nProof:\n'
     print_parent(answer, query)
 #    break
