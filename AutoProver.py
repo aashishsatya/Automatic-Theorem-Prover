@@ -478,13 +478,28 @@ def substitute(theta, clause):
         # check if any of the arguments are bound, and substitute
         return Clause(clause.op, (substitute(theta, arg) for arg in clause.args))
 
+def convert_to_implication(clause):
+    
+    """
+    Converts clause to a form lhs => rhs for further processing by fol_bc_or.
+    """
+    
+    if clause.op == '==>':
+        # the idea is that in lhs => rhs, lhs must be returned as a conjunction of literals.
+        # only then can fol_bc_and get each of those conjuncts to prove
+        # for this we simply break the nesting of the lhs (this should work, right?)
+        return break_nesting(clause.args[0]), clause.args[1]
+    else:
+        return [], clause
+    
 def fol_bc_and(kb, goals, theta):
     
     """
     Helper functions that support fol_bc_ask as in AIMA
     goals is a clause that will be a conjunction of all literals to prove.
     """
-    
+
+    print 'goals in and =', goals
     if theta is None:
         pass
     elif isinstance(goals, list) and len(goals) == 0:
@@ -506,36 +521,27 @@ def fol_bc_and(kb, goals, theta):
             first_arg = goals
             second_arg = []
         for theta1 in fol_bc_or(kb, substitute(theta, first_arg), theta):
+            if second_arg == [] and is_predicate(first_arg):
+                    print 'detected in and, first_arg =', first_arg
+                    parent_clauses[first_arg] = ([substitute(theta, first_arg)], 'given', None)
             # the first argument goes to fol_bc_or because only ONE of the literals
             # in that clause need be proved (and hence the clause becomes true)
             for theta2 in fol_bc_and(kb, second_arg, theta1):
                 yield theta2
-
-def convert_to_implication(clause):
-    
-    """
-    Converts clause to a form lhs => rhs for further processing by fol_bc_or.
-    """
-    
-    if clause.op == '==>':
-        # the idea is that in lhs => rhs, lhs must be returned as a conjunction of literals.
-        # only then can fol_bc_and get each of those conjuncts to prove
-        # for this we simply break the nesting of the lhs (this should work, right?)
-        return break_nesting(clause.args[0]), clause.args[1]
-    else:
-        return [], clause
 
 def fol_bc_or(kb, goal, theta):
     
     """
     Helper functions that support fol_bc_ask as in AIMA
     """
-    
+
+    if goal.op == 'Malayali':
+        print 'malayali goal =', goal
     possible_rules = kb.fetch_rules_for_goal(goal)
     for rule in possible_rules:
         stdized_rule = standardize_vbls(rule)
         lhs, rhs = convert_to_implication(stdized_rule)
-#        print 'lhs, rhs =', str(lhs) + ',', rhs        
+        print 'lhs, rhs =', str(lhs) + ',', rhs        
         rhs_unify_try = unify(rhs, goal, theta)
         if rhs_unify_try is not None:
             # some successful unification was obtained
@@ -546,11 +552,17 @@ def fol_bc_or(kb, goal, theta):
                 if lhs.op == '&':
                     parent_clauses[lhs] = (lhs.args, 'Rule of conjunction', None)
                 parent_clauses[goal] = ([stdized_rule], 'Modus Ponens', None)
+##                actual_lhs, actual_rhs = convert_to_implication(rule)
                 parent_clauses[stdized_rule] = ([lhs], 'Rule of universal instantiation', rule)
+            else:
+                # so lhs was []
+                print 'rhs =', rhs
+                print 'goal =', goal, 'rule =', rule
+                parent_clauses[goal] = ([stdized_rule], 'given', None)
         # lhs goes to fol_bc_AND because ALL clauses in the lhs needs to be proved
         for theta1 in fol_bc_and(kb, lhs, rhs_unify_try):
             yield theta1
-    
+
 def fol_bc_ask(kb, query):
     """
     A function that uses backward chaining to find whether query is entailed by
@@ -599,21 +611,27 @@ def print_parent(theta, clause):
     """
     Prints the parents of the clause one by one
     """
-    if clause.op == 'Sells' and clause not in parent_clauses:
+
+    print 'reqd clause =', clause
+##    if clause.op == 'Sells' and clause not in parent_clauses:
         # TODO: The problem here is that we're trying to find a parent for Sells(x, M1, Nono) while
         # TODO: the parent_clauses only has a parent for Sells(x, M1, v_13).
         # TODO: Fix this and hopefully you're done.
-        print 'trying to find parent for', clause
-    if clause not in parent_clauses:
-        # last statement, must have already been given in kb
-        print 'We know', complete_substitute(theta, clause), '(given)'
-        return
+##    print 'trying to find parent for', clause
+##    if clause not in parent_clauses:
+##        # last statement, must have already been given in kb
+##        print 'We know', complete_substitute(theta, clause), '(given)'
+##        return
+        
     parents, law_used, clause_used = parent_clauses[clause]
+    if law_used == 'given':
+        print 'We know', parent_clauses[clause], '(given)'
+        return
     for parent in parents:
-        if parent in parent_clauses:
-            print_parent(theta, parent)
-        else:
-            print_parent(theta, substitute(theta, parent))
+##        if parent in parent_clauses:
+        print_parent(theta, parent)
+##        else:
+##            print_parent(theta, substitute(theta, parent))
     print 'which leads to', complete_substitute(theta, clause),
     if clause_used is not None:
         # clause was of the implication form
@@ -683,8 +701,8 @@ simplest_kb = KnowledgeBase(
     'Malayali(x) ==> Indian(x)',
     ])))
     
-kb = crime_kb
-query = convert_to_clause(parse('Criminal(x)'))
+kb = simpler_kb
+query = convert_to_clause(parse('Indian(Aashish)'))
 
 vbls_in_query = find_variables(query)
 for answer in kb.ask(query):
