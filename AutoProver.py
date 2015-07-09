@@ -590,6 +590,14 @@ def find_variables(clause):
 
 #______________________________________________________________________________
 
+# this part is all about implementing parent
+
+parent_clauses = KnowledgeBase()
+
+
+#______________________________________________________________________________
+
+
 
 #print 'Enter statements in first-order logic one by one:'
 #print 'Enter STOP when done.'
@@ -629,7 +637,7 @@ crime_kb = KnowledgeBase(
      'Enemy(Nono, America)'
      ])))
 
-test_kb = KnowledgeBase(
+farm_kb = KnowledgeBase(
     map(convert_to_clause, map(parse, ['Farmer(Mac)',
                'Rabbit(Pete)',
                'Mother(MrsMac, Mac)',
@@ -652,10 +660,18 @@ simplest_kb = KnowledgeBase(
     'Malayali(x) ==> Indian(x)',
     ])))
     
-kb = crime_kb
-query = convert_to_clause(parse('Criminal(x)'))
+propn_kb = KnowledgeBase(
+    map(convert_to_clause, map(parse, ['P ==> Q',
+    'Q ==> R',
+    'P'
+    ])))
+    
+kb = farm_kb
+query = convert_to_clause(parse('Hates(x, y)'))
 vbls_in_query = find_variables(query)
 
+print ''
 for answer in kb.ask(query):
     for vbl in vbls_in_query:
         print str(vbl) + ':', answer[vbl]
+    print ''
