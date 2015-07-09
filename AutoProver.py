@@ -494,6 +494,20 @@ def substitute(theta, clause):
         # check if any of the arguments are bound, and substitute
         return Clause(clause.op, (substitute(theta, arg) for arg in clause.args))
 
+def convert_to_implication(clause):
+    
+    """
+    Converts clause to a form lhs => rhs for further processing by fol_bc_or.
+    """
+    
+    if clause.op == '==>':
+        # the idea is that in lhs => rhs, lhs must be returned as a conjunction of literals.
+        # only then can fol_bc_and get each of those conjuncts to prove
+        # for this we simply break the nesting of the lhs (this should work, right?)
+        return break_nesting(clause.args[0]), clause.args[1]
+    else:
+        return [], clause
+
 def fol_bc_and(kb, goals, theta):
     
     """
@@ -530,20 +544,6 @@ def fol_bc_and(kb, goals, theta):
             # in that clause need be proved (and hence the clause becomes true)
             for theta2 in fol_bc_and(kb, second_arg, theta1):
                 yield theta2
-
-def convert_to_implication(clause):
-    
-    """
-    Converts clause to a form lhs => rhs for further processing by fol_bc_or.
-    """
-    
-    if clause.op == '==>':
-        # the idea is that in lhs => rhs, lhs must be returned as a conjunction of literals.
-        # only then can fol_bc_and get each of those conjuncts to prove
-        # for this we simply break the nesting of the lhs (this should work, right?)
-        return break_nesting(clause.args[0]), clause.args[1]
-    else:
-        return [], clause
 
 def fol_bc_or(kb, goal, theta):
     
@@ -623,37 +623,28 @@ def complete_substitute(theta, clause):
     return clause
 
 def print_parent(theta, clause):
+    
     """
     Prints the parents of the clause one by one
     """
-#    if clause.op == 'Sells' and clause not in parent_clauses:
-#        # TODO: The problem here is that we're trying to find a parent for Sells(x, M1, Nono) while
-#        # TODO: the parent_clauses only has a parent for Sells(x, M1, v_13).
-#        # TODO: Fix this and hopefully you're done.
-#        print 'trying to find parent for', clause
-#    if clause not in parent_clauses:
-#        # last statement, must have already been given in kb
-#        print 'We know', complete_substitute(theta, clause), '(given)'
-#        return
-#    parents, law_used, clause_used = parent_clauses[clause]
-#    for parent in parents:
-#        if parent in parent_clauses:
-#            print_parent(theta, parent)
-#        else:
-#            print_parent(theta, substitute(theta, parent))
-#    print 'which leads to', complete_substitute(theta, clause),
-#    if clause_used is not None:
-#        # clause was of the implication form
-#        print '(' + law_used, 'on', str(clause_used) + ')'
-#    else:
-#        print '(' + law_used + ')'
+
+    """
+    TODO:
+    The problem is with conjuncts. E.g. in Malayali(x) & Loves(x, India) ==> Indian(x),
+    a binding might already have been decided for x. This is substituted into Loves(x, India) and so
+    - and this is very important -
+    Loves(x, India) might NOT get a parent as itself (as of now). It however, does get a parent
+    Loves(Aashish, India) which is not really what we need for printing the proof.
+    Take care of this and you're one step away from victory.
+    """
+
     
-#    if clause.op == 'Sells' and clause not in parent_clauses:
-#        # TODO: The problem here is that we're trying to find a parent for Sells(x, M1, Nono) while
-#        # TODO: the parent_clauses only has a parent for Sells(x, M1, v_13).
-#        # TODO: Fix this and hopefully you're done.
-#        print 'trying to find parent for', clause
     matching_clauses = parent_clauses.fetch_rules_for_goal(clause)
+##    if clause.op == 'Sells':
+##        print 'trying to find parent for', clause
+##        print 'clauses matched:'
+##        for possible_clause in matching_clauses:
+##            print possible_clause
     if clause not in matching_clauses:
         # last statement, must have already been given in kb
         print 'We know', complete_substitute(theta, clause), '(given)'
@@ -711,7 +702,7 @@ parent_clauses = KnowledgeBase()
 
 crime_kb = KnowledgeBase(
   map(convert_to_clause, map(parse,
-    ['(American(x) & Weapon(y) & Sells(x, y, z) & Hostile(z)) ==> Criminal(x)',
+    ['(American(x) & Weapon(y) & Hostile(z) & Sells(x, y, z)) ==> Criminal(x)',
      'Owns(Nono, M1)',
      'Missile(M1)',
      'Missile(x) & Owns(Nono, x) ==> Sells(West, x, Nono)',
@@ -756,14 +747,6 @@ for answer in kb.ask(query):
     for key in answer.keys():
         print str(key) + ':', answer[key]
     print '\nparents:\n'
-#    for key in parent_clauses.keys():
-#        parents, law_used, clause_used = parent_clauses[key]
-#        print str(key) + ': [',
-#        print parents[0],
-#        for parent in parents[1:]:
-#            print ',',
-#            print parent,
-#        print '],', law_used
     all_keys = parent_clauses.clauses.keys()
     all_clauses = []
     for key in all_keys:
@@ -771,7 +754,7 @@ for answer in kb.ask(query):
     all_clauses = list(set(all_clauses)) # to eliminate duplicates
     for clause in all_clauses:
         parents, law_used, clause_used = clause.get_parents()
-        print str(key) + ': [',
+        print str(clause) + ': [',
         print parents[0],
         for parent in parents[1:]:
             print ',',
@@ -779,5 +762,4 @@ for answer in kb.ask(query):
         print '],', law_used
     print '\nProof:\n'
     print_parent(answer, query)
-#    break
 print ''
