@@ -129,7 +129,7 @@ class Clause:
     def __hash__(self):
         return hash(self.op) ^ hash(tuple(self.args))
         
-    def __str__(self):
+    def __repr__(self):
         if len(self.args) == 0:
             # simple proposition, just print it out
             return self.op
@@ -525,14 +525,6 @@ def fol_bc_and(kb, goals, theta):
             # operator can only be '&' because the clause is definite (we've broken the nesting)
             first_arg = goals.args[0]
             second_arg = goals.args[1]
-            if first_arg.op == '&':
-#                parent_clauses[first_arg] = (first_arg.args, 'Rule of conjunction', None)
-                first_arg.set_parent((first_arg.args, 'Rule of conjunction', None))
-                parent_clauses.tell(first_arg)
-            if second_arg.op == '&':
-#                parent_clauses[second_arg] = (second_arg.args, 'Rule of conjunction', None)
-                second_arg.set_parents((second_arg.args, 'Rule of conjunction', None))
-                parent_clauses.tell(second_arg)
         else:
             # clause is a simple clause of kind 'Has(X, Y)'
             # so we need to prove just this i.e. there IS no second clause to prove
@@ -555,25 +547,7 @@ def fol_bc_or(kb, goal, theta):
     for rule in possible_rules:
         stdized_rule = standardize_vbls(rule)
         lhs, rhs = convert_to_implication(stdized_rule)
-#        print 'lhs, rhs =', str(lhs) + ',', rhs        
         rhs_unify_try = unify(rhs, goal, theta)
-        if rhs_unify_try is not None:
-            # some successful unification was obtained
-            if rhs.op == '&':
-#                parent_clauses[rhs] = (rhs.args, 'Rule of conjunction', None)
-                rhs.set_parents((rhs.args, 'Rule of conjunction', None))
-                parent_clauses.tell(rhs)
-            if lhs != []:
-                # checking for and declaring parent for '&'
-                if lhs.op == '&':
-                    lhs.set_parents((lhs.args, 'Rule of conjunction', None))
-                    parent_clauses.tell(lhs)
-#                parent_clauses[goal] = ([stdized_rule], 'Modus Ponens', None)
-                goal.set_parents(([stdized_rule], 'Modus Ponens', None))
-                parent_clauses.tell(goal)
-#                parent_clauses[stdized_rule] = ([lhs], 'Rule of universal instantiation', rule)
-                stdized_rule.set_parents(([lhs], 'Rule of universal instantiation', rule))
-                parent_clauses.tell(stdized_rule)
         # lhs goes to fol_bc_AND because ALL clauses in the lhs needs to be proved
         for theta1 in fol_bc_and(kb, lhs, rhs_unify_try):
             yield theta1
@@ -616,63 +590,6 @@ def find_variables(clause):
 
 #______________________________________________________________________________
 
-def complete_substitute(theta, clause):
-    # TODO: make this efficient!!
-    for i in range(0, len(theta.keys())):
-        clause = substitute(theta, clause)
-    return clause
-
-def print_parent(theta, clause):
-    
-    """
-    Prints the parents of the clause one by one
-    """
-
-    """
-    TODO:
-    The problem is with conjuncts. E.g. in Malayali(x) & Loves(x, India) ==> Indian(x),
-    a binding might already have been decided for x. This is substituted into Loves(x, India) and so
-    - and this is very important -
-    Loves(x, India) might NOT get a parent as itself (as of now). It however, does get a parent
-    Loves(Aashish, India) which is not really what we need for printing the proof.
-    Take care of this and you're one step away from victory.
-    """
-
-    
-    matching_clauses = parent_clauses.fetch_rules_for_goal(clause)
-##    if clause.op == 'Sells':
-##        print 'trying to find parent for', clause
-##        print 'clauses matched:'
-##        for possible_clause in matching_clauses:
-##            print possible_clause
-    if clause not in matching_clauses:
-        # last statement, must have already been given in kb
-        print 'We know', complete_substitute(theta, clause), '(given)'
-        return
-    reqd_clause = None
-    for possible_clause in matching_clauses:
-        if possible_clause == clause:
-            reqd_clause = possible_clause
-            break
-    if reqd_clause is None:
-        print 'BOOM'
-        return
-    parents, law_used, clause_used = reqd_clause.get_parents()
-    for parent in parents:
-        possible_parent_clauses = parent_clauses.fetch_rules_for_goal(parent)
-        if parent in possible_parent_clauses:
-            print_parent(theta, parent)
-        else:
-            print_parent(theta, substitute(theta, parent))
-    print 'which leads to', complete_substitute(theta, clause),
-    if clause_used is not None:
-        # clause was of the implication form
-        print '(' + law_used, 'on', str(clause_used) + ')'
-    else:
-        print '(' + law_used + ')'
-        
-# this is to store parents of clauses
-parent_clauses = KnowledgeBase()
 
 #print 'Enter statements in first-order logic one by one:'
 #print 'Enter STOP when done.'
@@ -737,29 +654,8 @@ simplest_kb = KnowledgeBase(
     
 kb = crime_kb
 query = convert_to_clause(parse('Criminal(x)'))
-
 vbls_in_query = find_variables(query)
+
 for answer in kb.ask(query):
-    print '\nbindings:\n'
-#    for variable in vbls_in_query:
-#        if variable in answer:
-#            print str(variable) + ':', answer[variable]
-    for key in answer.keys():
-        print str(key) + ':', answer[key]
-    print '\nparents:\n'
-    all_keys = parent_clauses.clauses.keys()
-    all_clauses = []
-    for key in all_keys:
-        all_clauses += parent_clauses.clauses[key]
-    all_clauses = list(set(all_clauses)) # to eliminate duplicates
-    for clause in all_clauses:
-        parents, law_used, clause_used = clause.get_parents()
-        print str(clause) + ': [',
-        print parents[0],
-        for parent in parents[1:]:
-            print ',',
-            print parent,
-        print '],', law_used
-    print '\nProof:\n'
-    print_parent(answer, query)
-print ''
+    for vbl in vbls_in_query:
+        print str(vbl) + ':', answer[vbl]
