@@ -650,7 +650,7 @@ def print_parent(theta, clause):
 
 crime_kb = KnowledgeBase(
   map(convert_to_clause, map(parse,
-    ['(American(x) & Weapon(y) & Sells(x, y, z) & Hostile(z)) ==> Criminal(x)',
+    ['(American(x) & Weapon(y) & Hostile(z) & Sells(x, y, z)) ==> Criminal(x)',
      'Owns(Nono, M1)',
      'Missile(M1)',
      'Missile(x) & Owns(Nono, x) ==> Sells(West, x, Nono)',
