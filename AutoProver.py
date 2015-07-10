@@ -80,7 +80,7 @@ class KnowledgeBase:
         else:
             # works if op is '~' or any other symbol
             # because there is always one argument if the symbol is a logical symbol
-            return retrieve_predicate(goal.args[0])
+            return self.retrieve_predicate(goal.args[0])
 
 class Clause:
     
@@ -113,7 +113,7 @@ class Clause:
     def __hash__(self):
         return hash(self.op) ^ hash(tuple(self.args))
         
-    def __str__(self):
+    def __repr__(self):
         if len(self.args) == 0:
             # simple proposition, just print it out
             return self.op
@@ -478,6 +478,20 @@ def substitute(theta, clause):
         # check if any of the arguments are bound, and substitute
         return Clause(clause.op, (substitute(theta, arg) for arg in clause.args))
 
+def convert_to_implication(clause):
+    
+    """
+    Converts clause to a form lhs => rhs for further processing by fol_bc_or.
+    """
+    
+    if clause.op == '==>':
+        # the idea is that in lhs => rhs, lhs must be returned as a conjunction of literals.
+        # only then can fol_bc_and get each of those conjuncts to prove
+        # for this we simply break the nesting of the lhs (this should work, right?)
+        return break_nesting(clause.args[0]), clause.args[1]
+    else:
+        return [], clause
+
 def fol_bc_and(kb, goals, theta):
     
     """
@@ -495,10 +509,6 @@ def fol_bc_and(kb, goals, theta):
             # operator can only be '&' because the clause is definite (we've broken the nesting)
             first_arg = goals.args[0]
             second_arg = goals.args[1]
-            if first_arg.op == '&':
-                parent_clauses[first_arg] = (first_arg.args, 'Rule of conjunction', None)
-            if second_arg.op == '&':
-                parent_clauses[second_arg] = (second_arg.args, 'Rule of conjunction', None)
         else:
             # clause is a simple clause of kind 'Has(X, Y)'
             # so we need to prove just this i.e. there IS no second clause to prove
@@ -506,24 +516,12 @@ def fol_bc_and(kb, goals, theta):
             first_arg = goals
             second_arg = []
         for theta1 in fol_bc_or(kb, substitute(theta, first_arg), theta):
+            if isinstance(second_arg, Clause):
+                parent_clauses[substitute(theta, goals)] = ([substitute(theta, first_arg), substitute(theta1, second_arg)], 'Rule of conjunction', None)
             # the first argument goes to fol_bc_or because only ONE of the literals
             # in that clause need be proved (and hence the clause becomes true)
             for theta2 in fol_bc_and(kb, second_arg, theta1):
                 yield theta2
-
-def convert_to_implication(clause):
-    
-    """
-    Converts clause to a form lhs => rhs for further processing by fol_bc_or.
-    """
-    
-    if clause.op == '==>':
-        # the idea is that in lhs => rhs, lhs must be returned as a conjunction of literals.
-        # only then can fol_bc_and get each of those conjuncts to prove
-        # for this we simply break the nesting of the lhs (this should work, right?)
-        return break_nesting(clause.args[0]), clause.args[1]
-    else:
-        return [], clause
 
 def fol_bc_or(kb, goal, theta):
     
@@ -534,19 +532,28 @@ def fol_bc_or(kb, goal, theta):
     possible_rules = kb.fetch_rules_for_goal(goal)
     for rule in possible_rules:
         stdized_rule = standardize_vbls(rule)
-        lhs, rhs = convert_to_implication(stdized_rule)
-#        print 'lhs, rhs =', str(lhs) + ',', rhs        
+        lhs, rhs = convert_to_implication(stdized_rule)      
         rhs_unify_try = unify(rhs, goal, theta)
         if rhs_unify_try is not None:
             # some successful unification was obtained
+            # THE BELOW CONDITION HAS NEVER BEEN EXECUTED SO FAR
             if rhs.op == '&':
+                # POTENTIAL PROBLEM HERE, YOU NEED TO DO THE SAME THING DONE IN THE INNER LOOPS
+                # OF FOL_BC_AND -- INCONCLUSIVE, MUST CHECK.
                 parent_clauses[rhs] = (rhs.args, 'Rule of conjunction', None)
+                print 'setting', rhs.args, 'as the parent of', rhs
+                # check for the below marker
+                print 'THIS DOES HAPPEN IN PRACTICE.'
             if lhs != []:
                 # checking for and declaring parent for '&'
                 if lhs.op == '&':
-                    parent_clauses[lhs] = (lhs.args, 'Rule of conjunction', None)
-                parent_clauses[goal] = ([stdized_rule], 'Modus Ponens', None)
-                parent_clauses[stdized_rule] = ([lhs], 'Rule of universal instantiation', rule)
+                    substituted_lhs_args = [substitute(rhs_unify_try, arg) for arg in lhs.args]
+                    parent_clauses[substitute(rhs_unify_try, lhs)] = (substituted_lhs_args, 'Rule of conjunction', None)
+                # actually we're supposed to substitute for the rhs
+                # but this will anyway be the goal, so we can go with goal as the child
+                # instead of substitute(rhs, rhs_unify_try)
+                parent_clauses[goal] = ([substitute(rhs_unify_try, stdized_rule)], 'Modus Ponens', None)
+                parent_clauses[substitute(rhs_unify_try, stdized_rule)] = ([substitute(rhs_unify_try, lhs)], 'Rule of universal instantiation', rule)
         # lhs goes to fol_bc_AND because ALL clauses in the lhs needs to be proved
         for theta1 in fol_bc_and(kb, lhs, rhs_unify_try):
             yield theta1
@@ -599,21 +606,14 @@ def print_parent(theta, clause):
     """
     Prints the parents of the clause one by one
     """
-    if clause.op == 'Sells' and clause not in parent_clauses:
-        # TODO: The problem here is that we're trying to find a parent for Sells(x, M1, Nono) while
-        # TODO: the parent_clauses only has a parent for Sells(x, M1, v_13).
-        # TODO: Fix this and hopefully you're done.
-        print 'trying to find parent for', clause
+    
     if clause not in parent_clauses:
         # last statement, must have already been given in kb
         print 'We know', complete_substitute(theta, clause), '(given)'
         return
     parents, law_used, clause_used = parent_clauses[clause]
     for parent in parents:
-        if parent in parent_clauses:
-            print_parent(theta, parent)
-        else:
-            print_parent(theta, substitute(theta, parent))
+        print_parent(theta, parent)
     print 'which leads to', complete_substitute(theta, clause),
     if clause_used is not None:
         # clause was of the implication form
@@ -660,7 +660,7 @@ crime_kb = KnowledgeBase(
      'Enemy(Nono, America)'
      ])))
 
-test_kb = KnowledgeBase(
+farm_kb = KnowledgeBase(
     map(convert_to_clause, map(parse, ['Farmer(Mac)',
                'Rabbit(Pete)',
                'Mother(MrsMac, Mac)',
@@ -682,27 +682,30 @@ simplest_kb = KnowledgeBase(
     map(convert_to_clause, map(parse, ['Malayali(Aashish)',
     'Malayali(x) ==> Indian(x)',
     ])))
+
+simple_kb = KnowledgeBase(
+    map(convert_to_clause, map(parse, ['Malayali(Aashish)',
+    'Malayali(y) & Loves(India, y) & Boy(y) ==> Indian(y)',
+    'Loves(India, Aashish)',
+    'Boy(Aashish)'
+    ])))
     
-kb = crime_kb
-query = convert_to_clause(parse('Criminal(x)'))
+kb = farm_kb
+query = convert_to_clause(parse('Hates(x, y)'))
 
 vbls_in_query = find_variables(query)
 for answer in kb.ask(query):
-    print '\nbindings:\n'
-#    for variable in vbls_in_query:
-#        if variable in answer:
-#            print str(variable) + ':', answer[variable]
-    for key in answer.keys():
-        print str(key) + ':', answer[key]
-    print '\nparents:\n'
-    for key in parent_clauses.keys():
-        parents, law_used, clause_used = parent_clauses[key]
-        print str(key) + ': [',
-        print parents[0],
-        for parent in parents[1:]:
-            print ',',
-            print parent,
-        print '],', law_used
+##    print '\nbindings:\n'
+##    print answer
+##    print '\nparents:\n'
+##    for key in parent_clauses.keys():
+##        parents, law_used, clause_used = parent_clauses[key]
+##        print str(key) + ': [',
+##        print parents[0],
+##        for parent in parents[1:]:
+##            print ',',
+##            print parent,
+##        print '],', law_used
     print '\nProof:\n'
     print_parent(answer, query)
 #    break
