@@ -62,11 +62,20 @@ class KnowledgeBase:
             
     
     def fetch_rules_for_goal(self, goal):
-        predicate = self.retrieve_predicate(goal)
-        if predicate in self.clauses:
-            return self.clauses[predicate]
-        else:
-            return []
+        try:
+            predicate = self.retrieve_predicate(goal)
+            if predicate in self.clauses:
+                return self.clauses[predicate]
+        except IndexError:
+            # we've received a simple letter goal, say 'x'
+            # no option other than to send all the clauses
+            all_clauses = []
+            for key in self.clauses.keys():
+                all_clauses += self.clauses[key]
+            # simply returning all_clauses might result in a lot of duplicates
+            # for e.g. P ==> Q is stored both under keys P and Q
+            # set() removes all duplicates, list() converts them back into a list
+            return list(set(all_clauses))
     
     def retrieve_predicate(self, goal):
         
@@ -498,7 +507,7 @@ def fol_bc_and(kb, goals, theta):
     Helper functions that support fol_bc_ask as in AIMA
     goals is a clause that will be a conjunction of all literals to prove.
     """
-    
+
     if theta is None:
         pass
     elif isinstance(goals, list) and len(goals) == 0:
@@ -539,7 +548,7 @@ def fol_bc_or(kb, goal, theta):
     """
     Helper functions that support fol_bc_ask as in AIMA
     """
-    
+
     possible_rules = kb.fetch_rules_for_goal(goal)
     for rule in possible_rules:
         stdized_rule = standardize_vbls(rule)
@@ -692,9 +701,15 @@ simple_kb = KnowledgeBase(
     'Loves(India, Aashish)',
     'Boy(Aashish)'
     ])))
+
+other_kb = KnowledgeBase(
+    map(convert_to_clause, map(parse, ['P ==> Q',
+    'Q ==> R',
+    'P',
+    ])))
     
-kb = simple_kb
-query = convert_to_clause(parse('Indian(x)'))
+kb = other_kb
+query = convert_to_clause(parse('x'))
 
 vbls_in_query = find_variables(query)
 for answer in kb.ask(query):
