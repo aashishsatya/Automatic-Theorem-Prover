@@ -487,7 +487,7 @@ def convert_to_implication(clause):
     if clause.op == '==>':
         # the idea is that in lhs => rhs, lhs must be returned as a conjunction of literals.
         # only then can fol_bc_and get each of those conjuncts to prove
-        # for this we simply break the nesting of the lhs (this should work, right?)
+        # for this we simply break the nesting of the lhs
         return break_nesting(clause.args[0]), clause.args[1]
     else:
         return [], clause
@@ -509,6 +509,13 @@ def fol_bc_and(kb, goals, theta):
             # operator can only be '&' because the clause is definite (we've broken the nesting)
             first_arg = goals.args[0]
             second_arg = goals.args[1]
+            if first_arg.op == '&':
+                # il problemo!
+                # fol_bc_or can only prove definite clauses, a conjunction of two literals alone is not one
+                # so we strip each second conjunct off, club it with the second arg until the first_arg is a literal
+                while not is_predicate(first_arg):
+                    second_arg = Clause('&', [first_arg.args[1], second_arg])
+                    first_arg = first_arg.args[0]
         else:
             # clause is a simple clause of kind 'Has(X, Y)'
             # so we need to prove just this i.e. there IS no second clause to prove
@@ -516,6 +523,10 @@ def fol_bc_and(kb, goals, theta):
             first_arg = goals
             second_arg = []
         for theta1 in fol_bc_or(kb, substitute(theta, first_arg), theta):
+            # notice that it is substitute(theta, first_arg) that will get a parent and not first_arg
+            # second_arg will also get substituted by the theta (i.e. theta1) obtained on running fol_bc_or on the first arg
+            # hence it is substitute(thetaONE, second_arg) that will get a parent, not substitute(theta, second_arg) or
+            # just second arg
             if isinstance(second_arg, Clause):
                 parent_clauses[substitute(theta, goals)] = ([substitute(theta, first_arg), substitute(theta1, second_arg)], 'Rule of conjunction', None)
             # the first argument goes to fol_bc_or because only ONE of the literals
@@ -532,18 +543,10 @@ def fol_bc_or(kb, goal, theta):
     possible_rules = kb.fetch_rules_for_goal(goal)
     for rule in possible_rules:
         stdized_rule = standardize_vbls(rule)
-        lhs, rhs = convert_to_implication(stdized_rule)      
+        lhs, rhs = convert_to_implication(stdized_rule)
         rhs_unify_try = unify(rhs, goal, theta)
         if rhs_unify_try is not None:
             # some successful unification was obtained
-            # THE BELOW CONDITION HAS NEVER BEEN EXECUTED SO FAR
-            if rhs.op == '&':
-                # POTENTIAL PROBLEM HERE, YOU NEED TO DO THE SAME THING DONE IN THE INNER LOOPS
-                # OF FOL_BC_AND -- INCONCLUSIVE, MUST CHECK.
-                parent_clauses[rhs] = (rhs.args, 'Rule of conjunction', None)
-                print 'setting', rhs.args, 'as the parent of', rhs
-                # check for the below marker
-                print 'THIS DOES HAPPEN IN PRACTICE.'
             if lhs != []:
                 # checking for and declaring parent for '&'
                 if lhs.op == '&':
@@ -685,13 +688,13 @@ simplest_kb = KnowledgeBase(
 
 simple_kb = KnowledgeBase(
     map(convert_to_clause, map(parse, ['Malayali(Aashish)',
-    'Malayali(y) & Loves(India, y) & Boy(y) ==> Indian(y)',
+    '(Malayali(y) & Loves(India, y)) & Boy(y) ==> Indian(y)',
     'Loves(India, Aashish)',
     'Boy(Aashish)'
     ])))
     
-kb = farm_kb
-query = convert_to_clause(parse('Hates(x, y)'))
+kb = simple_kb
+query = convert_to_clause(parse('Indian(x)'))
 
 vbls_in_query = find_variables(query)
 for answer in kb.ask(query):
@@ -708,5 +711,4 @@ for answer in kb.ask(query):
 ##        print '],', law_used
     print '\nProof:\n'
     print_parent(answer, query)
-#    break
 print ''
