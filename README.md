@@ -47,18 +47,18 @@ Input your statement to prove and you're done!! Simple as that :-)
 Commenting some set of statements and uncommenting some others (see AutoProver.py) lets you use the program as a query based system in first order logic. This is FAR more powerful than a simple theorem prover, and comes highly recommended.
 
 #####Demo run:
-
+```
 Enter statements in first-order logic one by one:
 Enter STOP when done.
-```
+
 King(x) ==> Person(x)
 King(Charles)
 STOP
-```
+
 Enter statement to prove: Person(Charles)
 
 Proof:
-```
+
 We know King(Charles) (given)
 which leads to King(Charles) ==> Person(Charles) (Rule of universal instantiation on King(x) ==> Person(x))
 which leads to Person(Charles) (Modus Ponens)
