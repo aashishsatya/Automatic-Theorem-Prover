@@ -10,6 +10,7 @@ Created on Wed Jun 17 23:04:42 2015
 from Parser import *
 from FolBC import *
 from PrintProof import *
+from HelpMessage import *
 
 #______________________________________________________________________________
 
@@ -62,14 +63,18 @@ def replace_with_variables(clause, theta = {}):
 
 #______________________________________________________________________________
 
+print '\nAutomatic Theorem Prover for First Order Logic, implemented by Aashish Satyajith.\n'
+print 'Enter HELP for help.\n'
 print 'Enter statements in first-order logic one by one:'
-print 'Enter STOP when done.'
+print 'Enter STOP when done.\n'
 
 # the knowledge base that stores all the statements
 kb = KnowledgeBase()
 
 statement = raw_input()
-while statement != 'STOP':    
+while statement != 'STOP':
+    if statement == 'HELP':
+        print_help()
     # parse the statement    
     parsed_stmnt = parse(statement)
     # convert the statement to clause
@@ -79,7 +84,7 @@ while statement != 'STOP':
     statement = raw_input()
     
 # input query
-query_input = raw_input('Enter your query: ')
+query_input = raw_input('\nEnter statement to prove: ')
 assert query_input != ''
 
 # replace the constants in the query with variables
@@ -88,7 +93,7 @@ query, reqd_theta = replace_with_variables(convert_to_clause(parse(query_input))
 
 # if you just want to see the theorem prover in action,
 # comment out the code above, uncomment the following code and run
-# there's also some formatting to be done towards the end of the script!!
+# NOTE: there's also some formatting to be done towards the end of the script!!
 
 # thanks Mr. Norvig for this
 
@@ -160,6 +165,6 @@ for answer in kb.ask(query):
 ##    print_parent(answer, query)
 
 if not proof_flag:
-    print 'Sorry, your statement could not be proved.'
+    print '\nSorry, your statement could not be proved.\n'
 else:
     print ''
