@@ -3,12 +3,12 @@
 This is a program that helps prove (or acknowledge non-provability of) a statement based on a given a set of propositions in first-order logic. The proof process is also displayed. The strategy used is backward chaining with unification. 
 
 The following logical connectives are supported:
-
+```
 & - and
 ==> - implies
 ~ (tilde) - not
 | (pipe) - or
-
+```
 Only knowledge bases using definite clauses (a disjunction of clauses that have just one positive literal) are allowed. For e.g.
 
 Kid(x) & Loves(Chocolate, x) ==> Awesome(x)
@@ -50,19 +50,19 @@ Commenting some set of statements and uncommenting some others (see AutoProver.p
 
 Enter statements in first-order logic one by one:
 Enter STOP when done.
-
+```
 King(x) ==> Person(x)
 King(Charles)
 STOP
-
+```
 Enter statement to prove: Person(Charles)
 
 Proof:
-
+```
 We know King(Charles) (given)
 which leads to King(Charles) ==> Person(Charles) (Rule of universal instantiation on King(x) ==> Person(x))
 which leads to Person(Charles) (Modus Ponens)
-
+```
 
 All this information is displayed when a help command (HELP) is invocated in the program.
 
