@@ -11,7 +11,14 @@ from FolBC import *
 #______________________________________________________________________________
 
 def complete_substitute(theta, clause):
-    # TODO: make this efficient!!
+
+    """
+    Keeps substituting for variables in clause until there
+    are no variables to substitute for or all variables in
+    theta have been substituted.
+    This is needed for displaying the proof.
+    """
+    
     for i in range(0, len(theta.keys())):
         clause = substitute(theta, clause)
     return clause
