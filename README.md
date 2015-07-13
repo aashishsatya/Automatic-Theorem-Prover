@@ -31,7 +31,7 @@ would mean a spy whose name is X -- X cannot be substituted with Bourne or Taske
 
 Also do not use spaces between names.
 
-##Running the program:
+###Running the program:
 
 Run the script 'AutoProver.py' by executing
 
@@ -42,11 +42,11 @@ once you're in the directory that has all the scripts included with the program.
 Simply enter propositions one by one (press Enter after each). Enter STOP to stop feeding clauses to the knowledge base.
 Input your statement to prove and you're done!! Simple as that :-)
 
-##RECOMMENDED HACK:
+###RECOMMENDED HACK:
 
 Commenting some set of statements and uncommenting some others (see AutoProver.py) lets you use the program as a query based system in first order logic. This is FAR more powerful than a simple theorem prover, and comes highly recommended.
 
-##Demo run:
+###Demo run:
 
 Enter statements in first-order logic one by one:
 Enter STOP when done.
